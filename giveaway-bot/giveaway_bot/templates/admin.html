@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Розыгрыши YouTube — Панель управления</title>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Google Sans', 'Roboto', sans-serif;
+            background: #1a1a1a;
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+        
+        .header {
+            background: #252525;
+            border-bottom: 1px solid #333;
+            padding: 0 24px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .header-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 18px;
+            font-weight: 500;
+            color: #fff;
+        }
+        
+        .header-logo svg { width: 28px; height: 28px; fill: #7c4dff; }
+        
+        .header-nav { display: flex; gap: 8px; }
+        
+        .header-nav a {
+            color: #999;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .header-nav a:hover { color: #fff; background: #333; }
+        .header-nav a.active { color: #7c4dff; background: rgba(124, 77, 255, 0.1); }
+        
+        .main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+        .page-title { font-size: 24px; font-weight: 500; margin-bottom: 24px; color: #fff; }
+        
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        
+        .card {
+            background: #252525;
+            border: 1px solid #333;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .card.full-width { grid-column: 1 / -1; }
+        
+        .card-header {
+            background: #2a2a2a;
+            padding: 16px 20px;
+            border-bottom: 1px solid #333;
+            font-size: 14px;
+            font-weight: 500;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .card-body { padding: 20px; }
+        
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: #1e1e1e;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #f44336;
+        }
+        
+        .status-dot.active {
+            background: #4caf50;
+            box-shadow: 0 0 8px #4caf50;
+        }
+        
+        .status-text { font-size: 13px; color: #999; }
+        
+        .stats { display: flex; gap: 16px; margin-bottom: 20px; }
+        
+        .stat {
+            flex: 1;
+            background: #1e1e1e;
+            border-radius: 6px;
+            padding: 16px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat.stat--join-fx {
+            overflow: visible;
+        }
+        
+        .stat-value { font-size: 32px; font-weight: 700; color: #7c4dff; }
+        .stat-label { font-size: 12px; color: #666; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .winner-card {
+            background: linear-gradient(135deg, #7c4dff 0%, #448aff 100%);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .winner-card.show { display: block; }
+        
+        .winner-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .winner-info { display: flex; align-items: center; gap: 16px; }
+        
+        .winner-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.3);
+        }
+        
+        .winner-details { }
+        
+        .winner-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.8;
+        }
+        
+        .winner-name { font-size: 24px; font-weight: 700; }
+        
+        .winner-timer {
+            text-align: right;
+        }
+        
+        .timer-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.8;
+        }
+        
+        .timer-value {
+            font-size: 28px;
+            font-weight: 700;
+            font-family: 'Roboto Mono', monospace;
+        }
+        
+        .timer-value.stopped { 
+            color: #1a1a1a;
+            background: #4caf50;
+            padding: 4px 12px;
+            border-radius: 6px;
+        }
+        
+        .timer-value.running { color: #fff; }
+        
+        .timer-status {
+            font-size: 11px;
+            margin-top: 4px;
+            opacity: 0.8;
+        }
+        
+        .form-group { margin-bottom: 16px; }
+        
+        .form-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: #999;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        
+        .form-input:focus { outline: none; border-color: #7c4dff; }
+        .form-input::placeholder { color: #555; }
+        
+        .form-row { display: flex; gap: 12px; }
+        .form-row .form-group { flex: 1; }
+        
+        .form-hint { font-size: 11px; color: #666; margin-top: 6px; }
+        
+        .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        
+        .btn-primary { background: #7c4dff; color: #fff; }
+        .btn-primary:hover:not(:disabled) { background: #651fff; }
+        .btn-success { background: #4caf50; color: #fff; }
+        .btn-success:hover:not(:disabled) { background: #43a047; }
+        .btn-warning { background: #ff9800; color: #fff; }
+        .btn-warning:hover:not(:disabled) { background: #f57c00; }
+        .btn-danger { background: #f44336; color: #fff; }
+        .btn-danger:hover:not(:disabled) { background: #e53935; }
+        .btn-secondary { background: #333; color: #fff; }
+        .btn-secondary:hover:not(:disabled) { background: #444; }
+        .btn-outline { background: transparent; border: 1px solid #444; color: #999; }
+        .btn-outline:hover:not(:disabled) { border-color: #666; color: #fff; }
+        .btn-sm { padding: 8px 12px; font-size: 12px; }
+        
+        .list {
+            background: #1e1e1e;
+            border-radius: 6px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .list::-webkit-scrollbar { width: 8px; }
+        .list::-webkit-scrollbar-track { background: #1e1e1e; }
+        .list::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+        
+        .list-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #2a2a2a;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .list-item:last-child { border-bottom: none; }
+        
+        .list-item-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #333;
+        }
+        
+        .list-item-number { color: #666; font-size: 12px; min-width: 24px; }
+        
+        .list-empty { padding: 32px; text-align: center; color: #555; font-size: 13px; }
+        
+        .message-item {
+            padding: 10px 16px;
+            border-bottom: 1px solid #2a2a2a;
+            font-size: 13px;
+            user-select: text;
+        }
+        
+        .message-time { color: #7c4dff; font-size: 11px; margin-right: 8px; }
+        .message-text { color: #ccc; user-select: text; }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #7c4dff;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 500;
+            border-radius: 4px;
+            margin-left: 8px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .badge.show { opacity: 1; }
+
+        .participant-fx-layer {
+            position: absolute;
+            inset: 8px 8px auto 8px;
+            pointer-events: none;
+        }
+
+        .participant-fx-item {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%) translateY(8px);
+            color: #7cffaa;
+            font-size: 12px;
+            font-weight: 600;
+            text-shadow: 0 0 10px rgba(124, 255, 170, 0.35);
+            opacity: 0;
+            animation: participantPop 1.15s ease-out forwards;
+            white-space: nowrap;
+            max-width: 220px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .participant-fx-item.participant-fx-batch {
+            font-weight: 700;
+        }
+
+        @keyframes participantPop {
+            0% { opacity: 0; transform: translateX(-50%) translateY(6px) scale(0.96); }
+            20% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateX(-50%) translateY(-14px) scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-logo">
+            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l4.59-4.58L18 11l-6 6z"/></svg>
+            Розыгрыши YouTube <span style="font-size: 11px; color: #666; font-weight: 400;">by gz</span>
+        </div>
+        <nav class="header-nav">
+            <a href="/" class="active">Панель</a>
+            <a href="/obs-dock">OBS Dock</a>
+            <a href="/constructor">Конструктор</a>
+            <a href="/wheel-integration">Колесо</a>
+        </nav>
+    </header>
+    
+    <main class="main">
+        <h1 class="page-title">Панель управления</h1>
+        
+        <div class="card full-width">
+            <div class="card-header">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                Статус розыгрыша
+            </div>
+            <div class="card-body">
+                <div class="status-bar">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span class="status-text" id="statusText">Не активен</span>
+                </div>
+                
+                <div class="stats">
+                    <div class="stat stat--join-fx">
+                        <div class="stat-value" id="countDisplay">0</div>
+                        <div class="stat-label">Участников</div>
+                        <div class="participant-fx-layer" id="participantFxLayer"></div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" id="keywordDisplay">—</div>
+                        <div class="stat-label">Ключевое слово</div>
+                    </div>
+                </div>
+                
+                <div class="winner-card" id="winnerCard">
+                    <div class="winner-header">
+                        <div class="winner-info">
+                            <img class="winner-avatar" id="winnerAvatar" src="" alt="" style="display: none;">
+                            <div class="winner-details">
+                                <div class="winner-title">🏆 Победитель</div>
+                                <div class="winner-name" id="winnerName"></div>
+                            </div>
+                        </div>
+                        <div class="winner-timer">
+                            <div class="timer-label">⏱️ Время ответа</div>
+                            <div class="timer-value" id="timerValue">00:00</div>
+                            <div class="timer-status" id="timerStatus">Ожидание ответа...</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">
+                            Канал YouTube
+                            <span class="badge" id="savedBadge">Сохранено</span>
+                        </label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" class="form-input" id="channelInput" placeholder="@username или ссылка">
+                            <button class="btn btn-secondary btn-sm" onclick="saveChannel()">Сохранить</button>
+                        </div>
+                        <div class="form-hint">Примеры: @username, youtube.com/@channel</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ключевое слово</label>
+                        <input type="text" class="form-input" id="keyword" placeholder="Например: 123">
+                        <label class="setting-checkbox" style="margin-top:8px; display:flex; align-items:center; gap:8px; cursor:pointer; color:#aaa; font-size:13px;">
+                            <input type="checkbox" id="acceptAnyMessage" style="accent-color:#7c4dff;">
+                            Учитывать любое сообщение в чате (не только по ключевому слову)
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="btn-group">
+                    <button class="btn btn-success" id="btnStart" onclick="startGiveaway()">▶ Запустить</button>
+                    <button class="btn btn-secondary" id="btnStartTest" onclick="startTestGiveaway()">🧪 Запустить тест</button>
+                    <button class="btn btn-outline" id="btnAddTestParticipant" onclick="addTestParticipant()" style="display:none;">➕ Добавить участника</button>
+                    <button class="btn btn-danger" id="btnStop" onclick="stopGiveaway()" disabled>⏹ Остановить</button>
+                    <button class="btn btn-warning" id="btnPick" onclick="pickWinner()" disabled>🎲 Выбрать</button>
+                    <button class="btn btn-primary" id="btnReroll" onclick="rerollWinner()" disabled>🔄 Реролл</button>
+                    <button class="btn btn-outline" onclick="resetGiveaway()">Сбросить</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="grid">
+            <div class="card full-width">
+                <div class="card-header">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11 2v20c-5.05-.5-9-4.76-9-10s3.95-9.5 9-10zm2 0c5.05.5 9 4.76 9 10s-3.95 9.5-9 10V2z"/></svg>
+                    Интеграция колеса
+                </div>
+                <div class="card-body">
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                        <a class="btn btn-primary" href="/wheel-integration" target="_blank" rel="noopener">Открыть колесо в боте</a>
+                        <a class="btn btn-secondary" href="/panel.html" target="_blank" rel="noopener">Открыть панель колеса</a>
+                        <a class="btn btn-outline" href="/wheel.html" target="_blank" rel="noopener">Открыть виджет колеса</a>
+                    </div>
+                    <div class="form-hint" style="margin-top:10px;">
+                        Важно: колесо работает как отдельный модуль и не меняет логику выбора победителей в этом боте.
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+                    Участники
+                </div>
+                <div class="card-body" style="padding: 0;">
+                    <div class="list" id="participantsList">
+                        <div class="list-empty">Пока никого нет</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+                    Сообщения победителя
+                </div>
+                <div class="card-body" style="padding: 0;">
+                    <div class="list" id="messagesList">
+                        <div class="list-empty">Победитель ещё не выбран</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function formatTime(seconds) {
+            if (seconds === null || seconds === undefined) return '00:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        async function loadChannel() {
+            try {
+                const res = await fetch('/api/channel');
+                const data = await res.json();
+                if (data.channel_id) {
+                    document.getElementById('channelInput').value = data.channel_id;
+                }
+            } catch (e) {}
+        }
+        
+        async function saveChannel() {
+            const channelInput = document.getElementById('channelInput').value.trim();
+            await fetch('/api/channel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channel_id: channelInput })
+            });
+            
+            const badge = document.getElementById('savedBadge');
+            badge.classList.add('show');
+            setTimeout(() => badge.classList.remove('show'), 2000);
+        }
+        
+        let wakeLock = null;
+        let lastParticipantsSignature = '';
+        let lastParticipantsSet = new Set();
+        let lastWinnerMessagesSignature = '';
+        let lastWinnerName = '';
+        let lastWinnerAvatar = '';
+        let acceptAnyMessageDirty = false;
+        let participantFxQueue = [];
+        let participantFxActive = 0;
+        const participantFxMaxActive = 2;
+        const participantFxMaxQueue = 24;
+        const participantFxBatchThreshold = 3;
+        const participantFxRowGap = 22;
+
+        function canRequestWakeLock() {
+            return 'wakeLock' in navigator && typeof navigator.wakeLock.request === 'function';
+        }
+
+        async function requestWakeLock() {
+            if (!canRequestWakeLock()) return;
+            try {
+                if (wakeLock) return;
+                wakeLock = await navigator.wakeLock.request('screen');
+                wakeLock.addEventListener('release', () => {
+                    wakeLock = null;
+                });
+            } catch (e) {
+                console.warn('Wake Lock unavailable:', e);
+            }
+        }
+
+        function isSelectionInside(container) {
+            const sel = window.getSelection ? window.getSelection() : null;
+            if (!sel || sel.isCollapsed || sel.rangeCount === 0) return false;
+            const range = sel.getRangeAt(0);
+            const startNode = range.startContainer;
+            const endNode = range.endContainer;
+            return container.contains(startNode) || container.contains(endNode);
+        }
+
+        function participantsSignature(data) {
+            return JSON.stringify({
+                count: data.count,
+                participants: data.participants,
+                participants_data: data.participants_data
+            });
+        }
+
+        function participantBatchLabel(n) {
+            const k = Math.floor(Number(n)) || 0;
+            if (k <= 0) return '+0';
+            const mod10 = k % 10;
+            const mod100 = k % 100;
+            if (mod10 === 1 && mod100 !== 11) return `+${k} участник`;
+            if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `+${k} участника`;
+            return `+${k} участников`;
+        }
+
+        function dequeueParticipantFxEntry() {
+            if (participantFxQueue.length === 0) return null;
+            let e = participantFxQueue.shift();
+            if (e && typeof e === 'object' && e.kind === 'batch') {
+                while (participantFxQueue.length > 0) {
+                    const peek = participantFxQueue[0];
+                    if (peek && typeof peek === 'object' && peek.kind === 'batch') {
+                        const next = participantFxQueue.shift();
+                        e = { kind: 'batch', n: e.n + next.n };
+                    } else break;
+                }
+            }
+            return e;
+        }
+
+        function enqueueParticipantFx(names) {
+            if (!Array.isArray(names) || names.length === 0) return;
+            const n = names.length;
+            if (n >= participantFxBatchThreshold) {
+                const last = participantFxQueue[participantFxQueue.length - 1];
+                if (last && typeof last === 'object' && last.kind === 'batch') {
+                    last.n += n;
+                } else if (participantFxQueue.length < participantFxMaxQueue) {
+                    participantFxQueue.push({ kind: 'batch', n });
+                }
+            } else {
+                for (const name of names) {
+                    if (participantFxQueue.length >= participantFxMaxQueue) break;
+                    participantFxQueue.push(name);
+                }
+            }
+            flushParticipantFxQueue();
+        }
+
+        function flushParticipantFxQueue() {
+            const layer = document.getElementById('participantFxLayer');
+            if (!layer) return;
+
+            while (participantFxActive < participantFxMaxActive && participantFxQueue.length > 0) {
+                const entry = dequeueParticipantFxEntry();
+                if (entry == null) break;
+                participantFxActive += 1;
+
+                const isBatch = entry && typeof entry === 'object' && entry.kind === 'batch';
+                const item = document.createElement('div');
+                item.className = 'participant-fx-item' + (isBatch ? ' participant-fx-batch' : '');
+                if (isBatch) {
+                    item.textContent = participantBatchLabel(entry.n);
+                    item.style.animationDuration = '0.95s';
+                } else {
+                    item.textContent = `+ ${entry}`;
+                    item.style.animationDuration = '1.15s';
+                }
+                item.style.top = `${(participantFxActive - 1) * participantFxRowGap}px`;
+
+                item.addEventListener('animationend', () => {
+                    item.remove();
+                    participantFxActive = Math.max(0, participantFxActive - 1);
+                    if (participantFxQueue.length > 0) {
+                        requestAnimationFrame(flushParticipantFxQueue);
+                    }
+                });
+
+                layer.appendChild(item);
+            }
+        }
+
+        function winnerMessagesSignature(data) {
+            return JSON.stringify({
+                winner: data.winner || '',
+                winner_messages: data.winner_messages || []
+            });
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                requestWakeLock();
+            }
+        });
+        window.addEventListener('focus', requestWakeLock);
+        requestWakeLock();
+        document.getElementById('acceptAnyMessage').addEventListener('change', () => {
+            acceptAnyMessageDirty = true;
+        });
+
+        setInterval(updateStatus, 1000);
+        
+        async function updateStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                
+                const dot = document.getElementById('statusDot');
+                const text = document.getElementById('statusText');
+                
+                if (data.countdown > 0) {
+                    dot.classList.add('active');
+                    text.textContent = `Обратный отсчёт: ${data.countdown}`;
+                } else if (data.is_test_mode && data.is_active) {
+                    dot.classList.add('active');
+                    text.textContent = 'Тестовый режим активен';
+                } else if (data.is_active && data.is_connected) {
+                    dot.classList.add('active');
+                    text.textContent = 'Активен — слежу за чатом';
+                } else if (data.is_active) {
+                    dot.classList.add('active');
+                    text.textContent = 'Подключаюсь...';
+                } else if (data.winner) {
+                    dot.classList.add('active');
+                    text.textContent = 'Победитель выбран';
+                } else {
+                    dot.classList.remove('active');
+                    text.textContent = 'Не активен';
+                }
+                
+                document.getElementById('countDisplay').textContent = data.count;
+                document.getElementById('keywordDisplay').textContent = data.keyword || '—';
+                if (!acceptAnyMessageDirty || data.is_active) {
+                    document.getElementById('acceptAnyMessage').checked = !!data.accept_any_message;
+                }
+                
+                document.getElementById('btnStart').disabled = data.is_active || data.winner;
+                document.getElementById('btnStartTest').disabled = data.is_active || data.winner;
+                document.getElementById('btnStop').disabled = !data.is_active;
+                document.getElementById('btnPick').disabled = data.count === 0 || data.winner;
+                document.getElementById('btnReroll').disabled = !data.winner || data.count === 0;
+                const addTestBtn = document.getElementById('btnAddTestParticipant');
+                if (data.is_test_mode) {
+                    addTestBtn.style.display = '';
+                    addTestBtn.disabled = data.countdown > 0;
+                } else {
+                    addTestBtn.style.display = 'none';
+                }
+                
+                const winnerCard = document.getElementById('winnerCard');
+                if (data.winner) {
+                    winnerCard.classList.add('show');
+
+                    if (lastWinnerName !== data.winner) {
+                        document.getElementById('winnerName').textContent = data.winner;
+                        lastWinnerName = data.winner;
+                    }
+
+                    const avatar = document.getElementById('winnerAvatar');
+                    if (lastWinnerAvatar !== (data.winner_avatar || '')) {
+                        if (data.winner_avatar) {
+                            avatar.src = data.winner_avatar;
+                            avatar.style.display = 'block';
+                        } else {
+                            avatar.style.display = 'none';
+                        }
+                        lastWinnerAvatar = data.winner_avatar || '';
+                    }
+                    
+                    const timerValue = document.getElementById('timerValue');
+                    const timerStatus = document.getElementById('timerStatus');
+                    
+                    timerValue.textContent = formatTime(data.timer_seconds);
+                    
+                    if (data.timer_stopped) {
+                        timerValue.className = 'timer-value stopped';
+                        timerStatus.textContent = '✓ Победитель ответил!';
+                    } else {
+                        timerValue.className = 'timer-value running';
+                        timerStatus.textContent = 'Ожидание ответа...';
+                    }
+                } else {
+                    winnerCard.classList.remove('show');
+                }
+                
+                const list = document.getElementById('participantsList');
+                const currentParticipantsSig = participantsSignature(data);
+                if (currentParticipantsSig !== lastParticipantsSignature) {
+                    const currentParticipantsSet = new Set(data.participants || []);
+                    const newParticipants = [];
+                    for (const participant of currentParticipantsSet) {
+                        if (!lastParticipantsSet.has(participant)) {
+                            newParticipants.push(participant);
+                        }
+                    }
+
+                    if (data.participants.length > 0) {
+                        list.innerHTML = data.participants.map((p, i) => {
+                            const avatar = data.participants_data[p]?.avatar || '';
+                            return `<div class="list-item">
+                                <span class="list-item-number">${i + 1}</span>
+                                ${avatar ? `<img class="list-item-avatar" src="${avatar}" alt="">` : '<div class="list-item-avatar"></div>'}
+                                <span>${p}</span>
+                            </div>`;
+                        }).join('');
+                    } else {
+                        list.innerHTML = '<div class="list-empty">Пока никого нет</div>';
+                    }
+                    if (newParticipants.length > 0) {
+                        enqueueParticipantFx(newParticipants);
+                    }
+                    lastParticipantsSignature = currentParticipantsSig;
+                    lastParticipantsSet = currentParticipantsSet;
+                }
+                
+                const msgList = document.getElementById('messagesList');
+                const currentMessagesSig = winnerMessagesSignature(data);
+                const selectionInMessages = isSelectionInside(msgList);
+                if (currentMessagesSig !== lastWinnerMessagesSignature && !selectionInMessages) {
+                    if (data.winner && data.winner_messages.length > 0) {
+                        msgList.innerHTML = data.winner_messages.map(m =>
+                            `<div class="message-item">
+                                <span class="message-time">${m.time}</span>
+                                <span class="message-text">${m.text}</span>
+                            </div>`
+                        ).join('');
+                        msgList.scrollTop = msgList.scrollHeight;
+                    } else if (data.winner) {
+                        msgList.innerHTML = '<div class="list-empty">Победитель пока ничего не написал</div>';
+                    } else {
+                        msgList.innerHTML = '<div class="list-empty">Победитель ещё не выбран</div>';
+                    }
+                    lastWinnerMessagesSignature = currentMessagesSig;
+                }
+                
+            } catch (e) {}
+        }
+        
+        async function startGiveaway() {
+            const channelInput = document.getElementById('channelInput').value.trim();
+            const keyword = document.getElementById('keyword').value.trim();
+            const acceptAnyMessage = document.getElementById('acceptAnyMessage').checked;
+            
+            if (!channelInput) {
+                alert('Заполни канал!');
+                return;
+            }
+
+            if (!acceptAnyMessage && !keyword) {
+                alert('Заполни ключевое слово или включи режим "любое сообщение"');
+                return;
+            }
+            
+            document.getElementById('btnStart').disabled = true;
+            document.getElementById('btnStart').textContent = '⏳ Подключаюсь...';
+            
+            const res = await fetch('/api/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channel: channelInput, keyword: keyword, accept_any_message: acceptAnyMessage })
+            });
+            
+            const data = await res.json();
+            
+            if (!data.success) {
+                alert(data.error || 'Ошибка запуска');
+                document.getElementById('btnStart').disabled = false;
+            } else {
+                acceptAnyMessageDirty = false;
+            }
+            
+            document.getElementById('btnStart').textContent = '▶ Запустить';
+        }
+        
+        async function stopGiveaway() {
+            await fetch('/api/stop', { method: 'POST' });
+        }
+
+        async function startTestGiveaway() {
+            const keyword = document.getElementById('keyword').value.trim();
+            const acceptAnyMessage = document.getElementById('acceptAnyMessage').checked;
+            const btn = document.getElementById('btnStartTest');
+            btn.disabled = true;
+            const oldText = btn.textContent;
+            btn.textContent = '⏳ Запуск теста...';
+
+            try {
+                const res = await fetch('/api/start-test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keyword, accept_any_message: acceptAnyMessage })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    alert(data.error || 'Ошибка запуска теста');
+                    btn.disabled = false;
+                } else {
+                    acceptAnyMessageDirty = false;
+                }
+            } catch (e) {
+                alert('Ошибка запуска теста');
+                btn.disabled = false;
+            }
+
+            btn.textContent = oldText;
+        }
+
+        async function addTestParticipant() {
+            const addBtn = document.getElementById('btnAddTestParticipant');
+            addBtn.disabled = true;
+            try {
+                const res = await fetch('/api/test-add-participant', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    alert(data.error || 'Не удалось добавить участника');
+                }
+            } catch (e) {
+                alert('Ошибка добавления участника');
+            } finally {
+                addBtn.disabled = false;
+            }
+        }
+        
+        async function pickWinner() {
+            await fetch('/api/pick', { method: 'POST' });
+        }
+        
+        async function rerollWinner() {
+            const res = await fetch('/api/reroll', { method: 'POST' });
+            const data = await res.json();
+            if (!data.success) alert(data.error || 'Ошибка реролла');
+        }
+        
+        async function resetGiveaway() {
+            if (confirm('Сбросить розыгрыш?')) {
+                await fetch('/api/reset', { method: 'POST' });
+                document.getElementById('keyword').value = '';
+            }
+        }
+        
+        loadChannel();
+        updateStatus();
+    </script>
+</body>
+</html>

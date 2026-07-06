@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Roulette Overlay</title>
+  <style>
+    @font-face {
+      font-family: "Unbounded";
+      src: url("/Unbounded-SemiBold.ttf") format("truetype"),
+           url("/fonts/Unbounded-SemiBold.ttf") format("truetype");
+      font-weight: 600;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --card-w: 124px;
+      --card-h: 136px;
+      --gap: 11px;
+      --pitch: calc(var(--card-w) + var(--gap));
+      --focus-r: 150px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+      font-family: "Unbounded", system-ui, sans-serif;
+    }
+
+    .wrap {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+    }
+
+    .panel {
+      background:
+        radial-gradient(120% 90% at 50% -18%, rgba(255, 255, 255, 0.12), transparent 56%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.96), rgba(0, 0, 0, 0.92));
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow:
+        0 14px 30px rgba(0, 0, 0, 0.52),
+        inset 0 1px 0 rgba(255, 255, 255, 0.11),
+        inset 0 0 26px rgba(0, 0, 0, 0.42),
+        inset 0 -12px 22px rgba(0, 0, 0, 0.4);
+      border-radius: 14px;
+      padding: 12px 12px 10px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 420ms ease, transform 420ms ease;
+    }
+    .panel.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .roulette {
+      position: relative;
+      width: min(980px, 95vw);
+      height: 162px;
+      overflow: hidden;
+      border-radius: 10px;
+    }
+
+    .fade-edges {
+      position: absolute;
+      inset: 0;
+      z-index: 7;
+      pointer-events: none;
+      background: linear-gradient(90deg, rgba(0, 0, 0, 0.78), transparent 14%, transparent 86%, rgba(0, 0, 0, 0.78));
+    }
+
+    .layer {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+
+    .layer-base {
+      filter: blur(1.6px) brightness(0.76) saturate(0.86);
+      transform: scale(1.015);
+    }
+
+    .layer-focus {
+      clip-path: circle(var(--focus-r) at 50% 50%);
+      filter: none;
+    }
+
+    .strip {
+      position: absolute;
+      left: 0;
+      top: 19px;
+      display: flex;
+      gap: var(--gap);
+      padding: 0 8px;
+      transform: translateX(0);
+      will-change: transform;
+    }
+
+    .slot-card {
+      position: relative;
+      width: var(--card-w);
+      height: var(--card-h);
+      border-radius: 6px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.35);
+      flex: 0 0 var(--card-w);
+    }
+
+    .slot-card img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .slot-card::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 52px;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(8, 8, 10, 0.78) 52%, rgba(4, 4, 6, 0.96) 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .slot-name {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 7px;
+      height: 40px;
+      z-index: 2;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .slot-name-text {
+      width: 100%;
+      max-height: 40px;
+      overflow: hidden;
+      color: #fff;
+      text-align: center;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
+      line-height: 1.05;
+      letter-spacing: 0.01em;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      hyphens: auto;
+    }
+
+    .focus-ring {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: calc(var(--focus-r) * 2);
+      height: calc(var(--focus-r) * 2);
+      margin-left: calc(var(--focus-r) * -1);
+      margin-top: calc(var(--focus-r) * -1);
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.26);
+      box-shadow:
+        inset 0 0 40px rgba(255, 255, 255, 0.07),
+        0 0 24px rgba(0, 0, 0, 0.35);
+      z-index: 8;
+      pointer-events: none;
+    }
+
+    .focus-glass {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: calc(var(--focus-r) * 2);
+      height: calc(var(--focus-r) * 2);
+      margin-left: calc(var(--focus-r) * -1);
+      margin-top: calc(var(--focus-r) * -1);
+      border-radius: 50%;
+      z-index: 8;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02) 45%, rgba(0, 0, 0, 0.12));
+    }
+
+    .marker {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      margin-left: -2px;
+      z-index: 9;
+      border-radius: 2px;
+      background: linear-gradient(180deg, #ffe89a, #dcab37);
+      box-shadow: 0 0 16px rgba(255, 212, 96, 0.85);
+    }
+
+    .title-block {
+      margin-top: 0;
+      text-align: center;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.24));
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 0 14px;
+      opacity: 0;
+      max-height: 0;
+      overflow: hidden;
+      transform: translateY(4px);
+      transition: opacity 320ms ease, transform 320ms ease, max-height 320ms ease, margin-top 320ms ease, padding 320ms ease;
+    }
+    .title-block.visible {
+      opacity: 1;
+      margin-top: 14px;
+      max-height: 96px;
+      padding: 8px 14px 10px;
+      transform: translateY(0);
+    }
+    .title {
+      color: #ffffff;
+      font-size: clamp(24px, 2.4vw, 34px);
+      letter-spacing: 0.4px;
+      text-shadow: 0 0 8px rgba(255, 222, 133, 0.6), 0 4px 12px rgba(0, 0, 0, 0.7);
+      min-height: 1.2em;
+    }
+    .title-provider {
+      margin-top: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(210, 216, 230, 0.72);
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel" id="panel">
+      <div class="roulette" id="roulette">
+        <div class="layer layer-base">
+          <div class="strip" id="strip-base"></div>
+        </div>
+        <div class="layer layer-focus">
+          <div class="strip" id="strip-focus"></div>
+        </div>
+        <div class="fade-edges"></div>
+        <div class="focus-ring"></div>
+        <div class="focus-glass"></div>
+        <div class="marker"></div>
+      </div>
+      <div class="title-block" id="titleBlock">
+        <div class="title" id="title"></div>
+        <div class="title-provider" id="titleProvider" aria-hidden="true"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const CARD_W = 124;
+    const GAP = 11;
+    const PITCH = CARD_W + GAP;
+    const POLL_MS = 120;
+    const PRE_ITEMS = 78;
+    const POST_ITEMS = 104;
+    const STRIP_PAD_LEFT = 8;
+    const STOP_JITTER_PX = 36;
+    const SLOT_NAME_MAX_FONT = 13;
+    const SLOT_NAME_MIN_FONT = 6;
+    const SLOT_NAME_FONT_STEP = 0.5;
+    const SLOT_NAME_MEASURE_WIDTH = CARD_W - 16;
+    const SLOT_NAME_MEASURE_HEIGHT = 40;
+
+    const rouletteEl = document.getElementById("roulette");
+    const stripBaseEl = document.getElementById("strip-base");
+    const stripFocusEl = document.getElementById("strip-focus");
+    const titleEl = document.getElementById("title");
+    const titleProviderEl = document.getElementById("titleProvider");
+    const titleBlockEl = document.getElementById("titleBlock");
+    const panelEl = document.getElementById("panel");
+    const slotNameMeasureEl = document.createElement("div");
+    slotNameMeasureEl.className = "slot-name-text";
+    slotNameMeasureEl.style.position = "fixed";
+    slotNameMeasureEl.style.left = "-9999px";
+    slotNameMeasureEl.style.top = "-9999px";
+    slotNameMeasureEl.style.width = SLOT_NAME_MEASURE_WIDTH + "px";
+    slotNameMeasureEl.style.maxHeight = SLOT_NAME_MEASURE_HEIGHT + "px";
+    slotNameMeasureEl.style.pointerEvents = "none";
+    slotNameMeasureEl.style.visibility = "hidden";
+    document.body.appendChild(slotNameMeasureEl);
+
+    let slots = [];
+    let spinning = false;
+    let lastHandledId = null;
+    const backlog = [];
+    let frameId = 0;
+    let currentProvider = "all";
+    let hideTimer = null;
+    let lastIdleProvider = "";
+    let excludedProviders = new Set();
+    let lastExclusionSig = "";
+    const spinTickPool = [];
+    const SPIN_TICK_POOL_SIZE = 8;
+    let spinTickIdx = 0;
+    const resultAudio = new Audio("/sounds/result.mp3");
+    resultAudio.preload = "auto";
+    resultAudio.volume = 0.9;
+
+    for (let i = 0; i < SPIN_TICK_POOL_SIZE; i++) {
+      const a = new Audio("/sounds/spin_effect.mp3");
+      a.preload = "auto";
+      a.volume = 0.55;
+      spinTickPool.push(a);
+    }
+
+    function imgSrc(file) {
+      return "/images/" + encodeURIComponent(file);
+    }
+
+    function formatProviderLabel(provider) {
+      if (!provider || provider === "all") return "";
+      return String(provider).toUpperCase();
+    }
+
+    function randSlot() {
+      const pool = getPool();
+      if (!pool.length) return null;
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    function getPool(provider = currentProvider) {
+      if (!slots.length) return [];
+      if (!provider || provider === "all") {
+        return slots.filter((s) => !excludedProviders.has(s.provider));
+      }
+      const filtered = slots.filter((s) => s.provider === provider);
+      return filtered.length ? filtered : slots;
+    }
+
+    function setVisible(visible) {
+      panelEl.classList.toggle("visible", visible);
+    }
+
+    async function syncState(visible, provider) {
+      try {
+        await fetch("/api/state", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            visible,
+            provider,
+            excludedProviders: Array.from(excludedProviders),
+          }),
+        });
+      } catch (_) {
+        // ignore state sync errors
+      }
+    }
+
+    function buildReel(winner) {
+      const pick = () => randSlot() || winner;
+      const arr = [];
+      for (let i = 0; i < PRE_ITEMS; i++) arr.push(pick());
+      arr.push(winner);
+      for (let i = 0; i < POST_ITEMS; i++) arr.push(pick());
+      return arr;
+    }
+
+    function createCard(slot) {
+      const card = document.createElement("div");
+      card.className = "slot-card";
+      const img = document.createElement("img");
+      img.src = imgSrc(slot.file);
+      img.alt = slot.name;
+      img.loading = "eager";
+      const name = document.createElement("div");
+      name.className = "slot-name";
+      const nameText = document.createElement("div");
+      nameText.className = "slot-name-text";
+      const slotName = String(slot.name || "");
+      nameText.textContent = slotName;
+      slotNameMeasureEl.textContent = slotName;
+      let size = SLOT_NAME_MAX_FONT;
+      for (; size >= SLOT_NAME_MIN_FONT; size -= SLOT_NAME_FONT_STEP) {
+        slotNameMeasureEl.style.fontSize = size + "px";
+        if (slotNameMeasureEl.scrollHeight <= SLOT_NAME_MEASURE_HEIGHT + 0.5) break;
+      }
+      nameText.style.fontSize = Math.max(size, SLOT_NAME_MIN_FONT) + "px";
+      name.appendChild(nameText);
+      card.appendChild(img);
+      card.appendChild(name);
+      return card;
+    }
+
+    function renderReel(reel) {
+      stripBaseEl.innerHTML = "";
+      stripFocusEl.innerHTML = "";
+      for (let i = 0; i < reel.length; i++) {
+        const slot = reel[i];
+        stripBaseEl.appendChild(createCard(slot));
+        stripFocusEl.appendChild(createCard(slot));
+      }
+    }
+
+    function setX(x) {
+      const tr = `translateX(${x}px)`;
+      stripBaseEl.style.transform = tr;
+      stripFocusEl.style.transform = tr;
+    }
+
+    function easeOutCubic(t) {
+      return 1 - Math.pow(1 - t, 3);
+    }
+
+    function playSpinTickSound() {
+      if (!spinTickPool.length) return;
+      const snd = spinTickPool[spinTickIdx];
+      spinTickIdx = (spinTickIdx + 1) % spinTickPool.length;
+      try {
+        snd.currentTime = 0;
+        const p = snd.play();
+        if (p && typeof p.catch === "function") p.catch(() => {});
+      } catch (_) {
+        // ignore sound errors
+      }
+    }
+
+    function playResultSound() {
+      try {
+        resultAudio.currentTime = 0;
+        const p = resultAudio.play();
+        if (p && typeof p.catch === "function") p.catch(() => {});
+      } catch (_) {
+        // ignore sound errors
+      }
+    }
+
+    function animate(fromX, toX, duration, onFrame, done) {
+      cancelAnimationFrame(frameId);
+      const start = performance.now();
+      function tick(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const x = fromX + (toX - fromX) * easeOutCubic(t);
+        setX(x);
+        if (onFrame) onFrame(x);
+        if (t < 1) {
+          frameId = requestAnimationFrame(tick);
+          return;
+        }
+        done();
+      }
+      frameId = requestAnimationFrame(tick);
+    }
+
+    function runSpin(spinData) {
+      if (!spinData?.winner || spinning || slots.length === 0) return;
+      spinning = true;
+      currentProvider = spinData.provider || "all";
+      setVisible(true);
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+      titleBlockEl.classList.remove("visible");
+      titleEl.textContent = "";
+      titleProviderEl.textContent = "";
+
+      const reel = buildReel(spinData.winner);
+      renderReel(reel);
+
+      const center = rouletteEl.clientWidth / 2;
+      const startIndex = 5;
+      const winnerIndex = PRE_ITEMS;
+      const jitter = (Math.random() * 2 - 1) * STOP_JITTER_PX;
+      const fromX = center - (STRIP_PAD_LEFT + startIndex * PITCH + CARD_W / 2);
+      const toX = center - (STRIP_PAD_LEFT + winnerIndex * PITCH + CARD_W / 2) + jitter;
+      setX(fromX);
+
+      let lastCrossedIndex = Math.floor((center - (STRIP_PAD_LEFT + fromX)) / PITCH);
+      const lastReelIndex = reel.length - 1;
+      const duration = 5300 + Math.floor(Math.random() * 850);
+      animate(fromX, toX, duration, (x) => {
+        const crossed = Math.floor((center - (STRIP_PAD_LEFT + x)) / PITCH);
+        if (crossed <= lastCrossedIndex) return;
+        const stopAt = Math.min(crossed, lastReelIndex);
+        for (let i = lastCrossedIndex + 1; i <= stopAt; i++) {
+          playSpinTickSound();
+        }
+        lastCrossedIndex = stopAt;
+      }, () => {
+        playResultSound();
+        titleEl.textContent = spinData.winner.name;
+        titleProviderEl.textContent = formatProviderLabel(spinData.winner.provider);
+        requestAnimationFrame(() => titleBlockEl.classList.add("visible"));
+        spinning = false;
+        const next = backlog.shift();
+        if (next && next.id !== lastHandledId) {
+          lastHandledId = next.id;
+          runSpin(next);
+          return;
+        }
+        hideTimer = setTimeout(() => {
+          titleBlockEl.classList.remove("visible");
+          setVisible(false);
+          syncState(false, currentProvider);
+        }, 5000);
+      });
+    }
+
+    async function loadSlots() {
+      const r = await fetch("/api/slots");
+      const data = await r.json();
+      slots = data.slots || [];
+    }
+
+    async function pollQueue() {
+      try {
+        const r = await fetch("/api/next-spin");
+        const data = await r.json();
+        if (!data || !data.id) return;
+        if (spinning) {
+          backlog.push(data);
+          return;
+        }
+        if (data.id === lastHandledId) return;
+        lastHandledId = data.id;
+        runSpin(data);
+      } catch (_) {
+        // ignore polling errors
+      }
+    }
+
+    async function pollState() {
+      try {
+        const r = await fetch("/api/state");
+        const data = await r.json();
+        if (!r.ok) return;
+        currentProvider = data.provider || "all";
+        const nextEx = Array.isArray(data.excludedProviders) ? data.excludedProviders : [];
+        const sig = nextEx.slice().sort().join("\0");
+        if (sig !== lastExclusionSig) {
+          lastExclusionSig = sig;
+          excludedProviders = new Set(nextEx);
+          if (!spinning) renderIdle();
+        }
+        if (!spinning) {
+          setVisible(!!data.visible);
+        }
+      } catch (_) {
+        // ignore
+      }
+    }
+
+    function renderIdle() {
+      if (!slots.length) return;
+      const pool = getPool();
+      if (!pool.length) return;
+      const idle = [];
+      for (let i = 0; i < 30; i++) idle.push(pool[Math.floor(Math.random() * pool.length)]);
+      renderReel(idle);
+
+      const center = rouletteEl.clientWidth / 2;
+      const idx = 12;
+      const x = center - (STRIP_PAD_LEFT + idx * PITCH + CARD_W / 2);
+      setX(x);
+      titleBlockEl.classList.remove("visible");
+      titleEl.textContent = "";
+      titleProviderEl.textContent = "";
+      lastIdleProvider = currentProvider;
+    }
+
+    loadSlots().then(() => {
+      setVisible(false);
+      renderIdle();
+      setInterval(pollQueue, POLL_MS);
+      setInterval(() => {
+        pollState().then(() => {
+          if (!spinning && currentProvider !== lastIdleProvider) renderIdle();
+        });
+      }, 600);
+    });
+  </script>
+</body>
+</html>

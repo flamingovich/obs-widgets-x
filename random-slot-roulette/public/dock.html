@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Колесо — панель</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 14px;
+      font-family: system-ui, sans-serif;
+      background: #1a1a22;
+      color: #eaeaf0;
+      min-height: 100vh;
+    }
+    h1 {
+      font-size: 15px;
+      font-weight: 600;
+      margin: 0 0 12px;
+      color: #b8b8c8;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+      color: #9494aa;
+    }
+    select {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 9px 10px;
+      border-radius: 8px;
+      border: 1px solid #34344a;
+      background: #232334;
+      color: #eaeaf0;
+      font-size: 13px;
+    }
+    button {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: linear-gradient(180deg, #5c9ded, #3a7fd4);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    }
+    button:hover:not(:disabled) {
+      filter: brightness(1.06);
+    }
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .row button {
+      flex: 1;
+      margin: 0;
+      padding: 10px 12px;
+      font-size: 12px;
+      background: linear-gradient(180deg, #5c5f6d, #464a57);
+    }
+    .status {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #8888a0;
+      line-height: 1.4;
+    }
+    .err { color: #f08080; }
+    .ok { color: #8fd96b; }
+    .exclude-wrap {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #34344a;
+      background: #20202c;
+    }
+    .exclude-head {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border: 0;
+      background: transparent;
+      color: #9a9ab0;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: left;
+      padding: 0;
+      margin: 0 0 8px;
+      box-shadow: none;
+      cursor: pointer;
+    }
+    .exclude-head .arrow {
+      font-size: 11px;
+      color: #bcbcd4;
+      transition: transform 150ms ease;
+    }
+    .exclude-wrap.collapsed .exclude-head .arrow {
+      transform: rotate(-90deg);
+    }
+    .exclude-wrap.disabled {
+      opacity: 0.45;
+      pointer-events: none;
+    }
+    .exclude-list {
+      max-height: 160px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: max-height 180ms ease, opacity 150ms ease;
+      opacity: 1;
+    }
+    .exclude-wrap.collapsed .exclude-list {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .exclude-list label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      font-size: 12px;
+      color: #d0d0e0;
+      cursor: pointer;
+    }
+    .exclude-list label.excluded span {
+      color: #9c9cad;
+      text-decoration: line-through;
+      text-decoration-thickness: 1.5px;
+    }
+    .exclude-list input {
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Случайный слот</h1>
+  <label for="provider">Провайдер</label>
+  <select id="provider">
+    <option value="">Все провайдеры</option>
+  </select>
+  <div class="exclude-wrap" id="excludeWrap">
+    <button type="button" class="exclude-head" id="excludeToggle" aria-expanded="true">
+      <span>Не показывать в прокруте (только «Все провайдеры»)</span>
+      <span class="arrow">▼</span>
+    </button>
+    <div class="exclude-list" id="excludeList"></div>
+  </div>
+  <button type="button" id="go">Запустить Колесо</button>
+  <div class="row">
+    <button type="button" id="show">Отобразить</button>
+    <button type="button" id="hide">Скрыть</button>
+  </div>
+  <div class="status" id="status">Подключение к серверу…</div>
+  <script>
+    const go = document.getElementById("go");
+    const showBtn = document.getElementById("show");
+    const hideBtn = document.getElementById("hide");
+    const status = document.getElementById("status");
+    const providerEl = document.getElementById("provider");
+    const excludeWrap = document.getElementById("excludeWrap");
+    const excludeList = document.getElementById("excludeList");
+    const excludeToggle = document.getElementById("excludeToggle");
+    const EXCLUDE_COLLAPSED_KEY = "dock.exclude.collapsed";
+    const EXCLUDED_CACHE_KEY = "dock.exclude.providers";
+    let currentVisible = false;
+
+    function formatProvider(v) {
+      return v.toUpperCase();
+    }
+
+    function isAllProviders() {
+      return !providerEl.value;
+    }
+
+    function getExcludedFromUI() {
+      const out = [];
+      excludeList.querySelectorAll("input[type=checkbox]:checked").forEach((el) => {
+        out.push(el.value);
+      });
+      return out;
+    }
+
+    function setCollapsed(collapsed) {
+      excludeWrap.classList.toggle("collapsed", collapsed);
+      excludeToggle.setAttribute("aria-expanded", String(!collapsed));
+      localStorage.setItem(EXCLUDE_COLLAPSED_KEY, collapsed ? "1" : "0");
+    }
+
+    function applyExcludeStyles(labelEl, checkboxEl) {
+      labelEl.classList.toggle("excluded", checkboxEl.checked);
+    }
+
+    function getSavedExcludedSet() {
+      try {
+        const raw = localStorage.getItem(EXCLUDED_CACHE_KEY);
+        if (!raw) return new Set();
+        const arr = JSON.parse(raw);
+        if (!Array.isArray(arr)) return new Set();
+        return new Set(arr.filter((v) => typeof v === "string"));
+      } catch (_) {
+        return new Set();
+      }
+    }
+
+    function saveExcludedToCache() {
+      localStorage.setItem(EXCLUDED_CACHE_KEY, JSON.stringify(getExcludedFromUI()));
+    }
+
+    function buildExcludeCheckboxes(providers, checkedSet) {
+      excludeList.innerHTML = "";
+      for (const p of providers) {
+        const id = "ex-" + p;
+        const label = document.createElement("label");
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.value = p;
+        cb.id = id;
+        cb.checked = checkedSet.has(p);
+        applyExcludeStyles(label, cb);
+        cb.addEventListener("change", () => {
+          applyExcludeStyles(label, cb);
+          saveExcludedToCache();
+          void pushExclusions();
+        });
+        const span = document.createElement("span");
+        span.textContent = formatProvider(p);
+        label.appendChild(cb);
+        label.appendChild(span);
+        excludeList.appendChild(label);
+      }
+    }
+
+    function updateExcludeWrapState() {
+      excludeWrap.classList.toggle("disabled", !isAllProviders());
+    }
+
+    async function pushExclusions() {
+      const payload = {
+        visible: currentVisible,
+        provider: providerEl.value || "all",
+      };
+      if (isAllProviders()) payload.excludedProviders = getExcludedFromUI();
+      const r = await fetch("/api/state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || r.status);
+      currentVisible = !!data.visible;
+      showBtn.disabled = currentVisible;
+      hideBtn.disabled = !currentVisible;
+      saveExcludedToCache();
+    }
+
+    async function ping() {
+      try {
+        const [slotsRes, providersRes, stateRes] = await Promise.all([
+          fetch("/api/slots"),
+          fetch("/api/providers"),
+          fetch("/api/state"),
+        ]);
+        if (!slotsRes.ok) throw new Error("HTTP " + slotsRes.status);
+        if (!providersRes.ok) throw new Error("HTTP " + providersRes.status);
+        if (!stateRes.ok) throw new Error("HTTP " + stateRes.status);
+        const data = await slotsRes.json();
+        const providersData = await providersRes.json();
+        const stateData = await stateRes.json();
+        const n = (data.slots && data.slots.length) || 0;
+        const providers = providersData.providers || [];
+        const serverProvider = stateData.provider && stateData.provider !== "all" ? stateData.provider : "";
+        const current = providerEl.value || serverProvider;
+        providerEl.innerHTML = "<option value=''>Все провайдеры</option>";
+        for (const p of providers) {
+          const opt = document.createElement("option");
+          opt.value = p;
+          opt.textContent = formatProvider(p);
+          providerEl.appendChild(opt);
+        }
+        if ([...providerEl.options].some((o) => o.value === current)) {
+          providerEl.value = current;
+        }
+        const serverExcluded = new Set(stateData.excludedProviders || []);
+        const mergedExcluded = new Set([...getSavedExcludedSet(), ...serverExcluded]);
+        const knownProviders = new Set(providers);
+        const excluded = new Set([...mergedExcluded].filter((p) => knownProviders.has(p)));
+        buildExcludeCheckboxes(providers, excluded);
+        localStorage.setItem(EXCLUDED_CACHE_KEY, JSON.stringify([...excluded]));
+        updateExcludeWrapState();
+        currentVisible = !!stateData.visible;
+        showBtn.disabled = currentVisible;
+        hideBtn.disabled = !currentVisible;
+        const excludedArr = stateData.excludedProviders || [];
+        const excludedSet = new Set(excludedArr);
+        const poolAll = (data.slots || []).filter((s) => !excludedSet.has(s.provider)).length;
+        const oneProv = providerEl.value;
+        const poolOne = oneProv ? (data.slots || []).filter((s) => s.provider === oneProv).length : poolAll;
+        status.textContent =
+          "Готово. Слотов: " +
+          n +
+          (isAllProviders() ? " (в прокруте при «Все»: " + poolAll + ")" : " (" + poolOne + ")") +
+          ". Виджет: " +
+          (currentVisible ? "показан" : "скрыт") +
+          ".";
+        status.className = "status ok";
+        go.disabled = isAllProviders() ? poolAll === 0 : poolOne === 0;
+      } catch (e) {
+        status.innerHTML =
+          "Нет связи с <code>http://127.0.0.1:8765</code>. Запустите <code>start.bat</code> в папке проекта.";
+        status.className = "status err";
+        go.disabled = true;
+        showBtn.disabled = true;
+        hideBtn.disabled = true;
+      }
+    }
+
+    async function setState(nextVisible) {
+      const payload = {
+        visible: nextVisible,
+        provider: providerEl.value || "all",
+      };
+      if (isAllProviders()) payload.excludedProviders = getExcludedFromUI();
+      const r = await fetch("/api/state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || r.status);
+      currentVisible = !!data.visible;
+      showBtn.disabled = currentVisible;
+      hideBtn.disabled = !currentVisible;
+      return data;
+    }
+
+    go.addEventListener("click", async () => {
+      go.disabled = true;
+      showBtn.disabled = true;
+      hideBtn.disabled = true;
+      status.textContent = "Отправка…";
+      status.className = "status";
+      try {
+        await setState(true);
+        const r = await fetch("/api/spin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: providerEl.value || null }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || r.status);
+        status.textContent = "Запуск отправлен: " + (data.provider === "all" ? "Все провайдеры" : formatProvider(data.provider));
+        status.className = "status ok";
+      } catch (e) {
+        status.textContent = String(e.message || e);
+        status.className = "status err";
+      } finally {
+        go.disabled = false;
+        showBtn.disabled = currentVisible;
+        hideBtn.disabled = !currentVisible;
+      }
+    });
+
+    showBtn.addEventListener("click", async () => {
+      try {
+        await setState(true);
+        status.textContent = "Виджет отображен.";
+        status.className = "status ok";
+      } catch (e) {
+        status.textContent = String(e.message || e);
+        status.className = "status err";
+      }
+    });
+
+    providerEl.addEventListener("change", () => {
+      updateExcludeWrapState();
+      void pushExclusions().catch(() => {});
+    });
+
+    excludeToggle.addEventListener("click", () => {
+      setCollapsed(!excludeWrap.classList.contains("collapsed"));
+    });
+
+    setCollapsed(localStorage.getItem(EXCLUDE_COLLAPSED_KEY) === "1");
+    hideBtn.addEventListener("click", async () => {
+      try {
+        await setState(false);
+        status.textContent = "Виджет скрыт.";
+        status.className = "status ok";
+      } catch (e) {
+        status.textContent = String(e.message || e);
+        status.className = "status err";
+      }
+    });
+
+    ping();
+    setInterval(ping, 8000);
+  </script>
+</body>
+</html>

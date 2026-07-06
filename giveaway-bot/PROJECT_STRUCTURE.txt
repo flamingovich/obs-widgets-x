@@ -1,0 +1,31 @@
+Project structure (wheel + giveaway)
+====================================
+
+Корень — колесо / панель / API (порт 58971)
+-------------------------------------------
+- server.py              HTTP: статика из этой папки + /api/*
+- wheel.html, panel.html страницы OBS
+- app.js, styles.css     логика и стили
+- start.bat              только колесо: python server.py из корня
+- start_all.bat          колесо + бот (два окна)
+- start_local_server.*   в корне — тонкие вызовы scripts/…
+- stop_all.bat           в корне — вызов scripts/stop_all.bat
+
+assets/                  медиа колеса (пути в app.js и styles.css)
+- assets/icons/          bonus.png, coupon.png, balance.png, respin.png
+- assets/textures/       texture_*.png для SVG-лица колеса
+- assets/fonts/          Unbounded-SemiBold.ttf
+- assets/misc/           прочее (например референсы), не используется кодом
+
+scripts/                 вспомогательные запускалки (cwd → родительский корень)
+- start_local_server.bat | .ps1 | .sh
+- stop_all.bat
+
+giveaway_bot/            Flask-бот (порт 5000), свой fonts/ и images/
+- server.py, start_giveaway_bot.bat, templates/, …
+
+Прочее
+- backups/             ручные/архивные копии (по желанию)
+- api/                   зарезервировано / пусто — можно удалить, если не нужно
+
+Интеграция с ботом — только ссылки в шаблонах на http://127.0.0.1:58971/…

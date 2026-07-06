@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <title>Панель — рулетка</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css?v=ct20260435b" />
+  </head>
+  <body class="panel-page" data-page="panel">
+    <div id="hybridServerWarn" class="hybrid-server-warn" hidden role="alert">
+      <strong>Нет ответа от API рулетки.</strong>
+      Откройте панель с адреса <code>http://127.0.0.1:58971/panel.html</code> (после <code>start.bat</code> /
+      <code>python server.py</code>). Старый порт 8787 часто занят другим сервером — наш сервер по умолчанию слушает
+      <strong>58971</strong>.
+    </div>
+    <div class="panel-shell">
+      <header class="panel-topbar">
+        <div class="panel-brand">
+          <span class="panel-brand-mark" aria-hidden="true">✓</span>
+          <div class="panel-brand-text">
+            <h1 class="panel-brand-title">Рулетка стрима</h1>
+            <p class="panel-brand-sub">Колесо и кейс для OBS</p>
+          </div>
+        </div>
+        <nav class="panel-tabs" aria-label="Разделы">
+          <button id="tabPanelBtn" type="button" class="panel-tab panel-tab--active">Панель</button>
+          <button id="tabConstructorBtn" type="button" class="panel-tab panel-tab--ghost">Конструктор</button>
+          <button id="tabPresetsBtn" type="button" class="panel-tab panel-tab--ghost">Пресеты</button>
+        </nav>
+      </header>
+
+      <main class="panel-main">
+        <div id="panelViewMain" class="panel-split">
+          <section class="yt-card panel-control-card">
+            <h2 class="yt-card-title">Панель управления</h2>
+
+          <div class="yt-status-block">
+            <div class="yt-status-head">
+              <span class="yt-status-icon" aria-hidden="true">✓</span>
+              <span class="yt-status-label">Статус розыгрыша</span>
+            </div>
+            <div class="yt-status-row">
+              <span class="yt-status-dot yt-status-dot--ready" aria-hidden="true"></span>
+              <span class="yt-status-text">Готов к запуску</span>
+            </div>
+          </div>
+
+          <p class="yt-hint">Крутится только виджет в OBS. Сброс — остановить анимации и вернуть колесо в начало.</p>
+
+          <label class="yt-label" for="forcedSectorSelect">Ручной сектор</label>
+          <select id="forcedSectorSelect" class="yt-input yt-select">
+            <option value="">Случайно</option>
+            <option value="БОНУСКА">БОНУСКА</option>
+            <option value="КУПОН">КУПОН</option>
+            <option value="БАЛАНС">БАЛАНС</option>
+          </select>
+
+          <label class="yt-label" for="forcedItemInput">Ручной итог кейса</label>
+          <input id="forcedItemInput" class="yt-input" type="text" placeholder="Например: 6400 или 6.400 $" />
+
+            <div class="yt-actions">
+              <button id="spinNowBtn" type="button" class="yt-btn yt-btn--green">Запустить</button>
+              <button id="toggleWidgetBtn" type="button" class="yt-btn yt-btn--purple">Виджет</button>
+              <button id="forceResetWheelBtn" type="button" class="yt-btn yt-btn--muted">Сбросить колесо</button>
+              <button id="clearHistoryBtn" type="button" class="yt-btn yt-btn--red">Очистить историю</button>
+            </div>
+
+            <h3 class="yt-subtitle">Виджет карт</h3>
+            <p class="yt-muted">Карточка показывается поверх основного виджета колеса (в том же source).</p>
+            <div class="yt-actions">
+              <button id="cardShowBtn" type="button" class="yt-btn yt-btn--green">Отобразить</button>
+              <button id="cardRevealBtn" type="button" class="yt-btn yt-btn--purple">Показать результат</button>
+              <button id="cardHideBtn" type="button" class="yt-btn yt-btn--muted" style="display:none">Скрыть</button>
+            </div>
+          </section>
+          <section class="yt-card yt-card--history">
+            <h2 class="yt-card-title">
+              <span class="yt-card-title-icon" aria-hidden="true">💬</span>
+              История выпадений
+            </h2>
+            <ul id="historyList" class="history-list yt-history-list"></ul>
+          </section>
+        </div>
+
+        <div id="constructorViewMain" class="panel-split" hidden>
+          <section class="yt-card cstr" aria-label="Конструктор рулетки">
+            <header class="cstr-header">
+              <h2 class="cstr-title">Конструктор</h2>
+              <p class="cstr-note">Изменения в OBS — кнопка «Применить».</p>
+            </header>
+
+            <section class="cstr-block" aria-labelledby="cstr-wheel-heading">
+              <h3 id="cstr-wheel-heading" class="cstr-block-title">Сектора колеса</h3>
+              <p class="cstr-block-hint">
+                Шанс — выпадение. Лепестки — только картинка (чётное число — пары напротив; нечётное — по кругу).
+              </p>
+              <div id="chanceRows" class="cstr-wheel"></div>
+              <p id="wheelChanceHint" class="cstr-wheel-hint" aria-live="polite"></p>
+            </section>
+
+            <section class="cstr-block" aria-labelledby="cstr-case-heading">
+              <h3 id="cstr-case-heading" class="cstr-block-title">Кейс</h3>
+              <p class="cstr-block-hint">Подпризы по каждому сектору — раскройте блок.</p>
+              <div id="caseWeightRows" class="cstr-case-list"></div>
+            </section>
+
+            <footer class="cstr-footer">
+              <div class="cstr-footer-actions">
+                <button id="applyChancesBtn" type="button" class="yt-btn yt-btn--green">Применить</button>
+                <button id="quickSavePresetBtn" type="button" class="yt-btn yt-btn--purple">Пресет</button>
+                <button id="exportChancesBtn" type="button" class="yt-btn yt-btn--ghost">JSON ↓</button>
+                <button id="importChancesBtn" type="button" class="yt-btn yt-btn--ghost">JSON ↑</button>
+                <input id="importChancesFile" type="file" accept="application/json,.json" hidden />
+              </div>
+            </footer>
+          </section>
+        </div>
+
+        <section id="presetsViewMain" class="yt-card" hidden>
+          <h2 class="yt-card-title">Пресеты</h2>
+          <p class="yt-muted">Сохраняйте конфиг в браузере, загружайте и переносите JSON на другой ПК.</p>
+          <div class="yt-actions">
+            <input id="presetNameInput" class="yt-input" type="text" placeholder="Название пресета" />
+            <button id="savePresetBtn" type="button" class="yt-btn yt-btn--green">Сохранить пресет</button>
+            <button id="exportPresetBtn" type="button" class="yt-btn yt-btn--ghost">Экспорт в файл</button>
+            <button id="importPresetBtn" type="button" class="yt-btn yt-btn--ghost">Импорт из файла</button>
+            <input id="importPresetFile" type="file" accept="application/json,.json" hidden />
+          </div>
+          <ul id="presetList" class="history-list yt-history-list" style="margin-top:14px"></ul>
+        </section>
+
+        <section id="hybridDebugPanel" class="yt-card hybrid-debug-card" hidden aria-label="Отладочный лог">
+          <h2 class="yt-card-title">Отладка</h2>
+          <p class="yt-muted">
+            Включено через <code>?debug=1</code> в адресе или <code>localStorage.obs_hybrid_debug = "1"</code>. Скопируйте лог и
+            отправьте для разбора.
+          </p>
+          <textarea id="hybridDebugLogView" class="hybrid-debug-log-view" readonly rows="12" spellcheck="false"></textarea>
+          <div class="yt-actions">
+            <button id="hybridDebugCopyBtn" type="button" class="yt-btn yt-btn--green">Копировать лог</button>
+            <button id="hybridDebugClearBtn" type="button" class="yt-btn yt-btn--muted">Очистить</button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js?v=ct20260435b"></script>
+  </body>
+</html>

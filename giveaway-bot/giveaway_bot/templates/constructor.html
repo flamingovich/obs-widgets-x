@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Giveaway — Конструктор</title>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        @font-face {
+            font-family: 'CustomFont';
+            src: url('fonts/font.ttf') format('truetype');
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Google Sans', 'Roboto', sans-serif;
+            background: #1a1a1a;
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+        
+        .header {
+            background: #252525;
+            border-bottom: 1px solid #333;
+            padding: 0 24px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+        }
+        
+        .header-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 18px;
+            font-weight: 500;
+            color: #fff;
+        }
+        
+        .header-logo svg { width: 28px; height: 28px; fill: #7c4dff; }
+        
+        .header-nav { display: flex; gap: 8px; }
+        
+        .header-nav a {
+            color: #999;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .header-nav a:hover { color: #fff; background: #333; }
+        .header-nav a.active { color: #7c4dff; background: rgba(124, 77, 255, 0.1); }
+        
+        .layout { display: flex; padding-top: 56px; height: 100vh; }
+        
+        .preview-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            background: #1e1e1e;
+            position: relative;
+            min-width: 0;
+            overflow: hidden;
+        }
+        
+        .preview-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 16px 24px 0;
+            flex-shrink: 0;
+        }
+        
+        .preview-modes { display: flex; gap: 8px; }
+        
+        .preview-mode-btn {
+            padding: 8px 16px;
+            background: #333;
+            border: 1px solid #444;
+            border-radius: 6px;
+            color: #999;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .preview-mode-btn:hover { border-color: #666; color: #fff; }
+        .preview-mode-btn.active { background: #7c4dff; border-color: #7c4dff; color: #fff; }
+
+        .align-btns { display: flex; gap: 8px; }
+        .align-btn {
+            flex: 1;
+            padding: 8px 12px;
+            background: #333;
+            border: 1px solid #444;
+            border-radius: 6px;
+            color: #999;
+            font-size: 13px;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .align-btn:hover { border-color: #666; color: #fff; }
+        .align-btn.active { background: #7c4dff; border-color: #7c4dff; color: #fff; }
+
+        .preview-obs-note {
+            text-align: right;
+            font-size: 12px;
+            color: #666;
+            line-height: 1.45;
+        }
+
+        .preview-obs-note strong {
+            display: block;
+            color: #7c4dff;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+
+        .preview-scale-host {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            overflow: auto;
+            padding: 16px 24px 24px;
+            min-height: 280px;
+        }
+
+        .preview-viewport-wrap {
+            flex-shrink: 0;
+            margin: 0 auto;
+        }
+
+        .preview-viewport {
+            width: 1080px;
+            height: 600px;
+            position: relative;
+            flex-shrink: 0;
+            background: repeating-conic-gradient(#2a2a2a 0% 25%, #333 0% 50%) 50% / 16px 16px;
+            border-radius: 4px;
+            box-shadow: 0 0 0 1px #444;
+            transform-origin: top center;
+            will-change: transform;
+        }
+
+        .preview-viewport-label {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            font-size: 11px;
+            color: #aaa;
+            background: rgba(0, 0, 0, 0.55);
+            padding: 2px 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .preview-hint {
+            flex-shrink: 0;
+            padding: 8px 24px 20px;
+            color: #666;
+            font-size: 13px;
+        }
+
+        .obs-size-box {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 14px 16px;
+            margin-bottom: 16px;
+        }
+
+        .obs-size-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #7c4dff;
+        }
+
+        .obs-size-hint {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+        
+        .widget-stage {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+            padding: 28px 12px;
+            box-sizing: border-box;
+        }
+
+        .widget-stage.align-center { justify-content: center; }
+        .widget-stage.align-right { justify-content: flex-end; }
+
+        #widgetPreview {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .widget {
+            position: relative;
+            top: auto;
+            left: auto;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            padding: 10px 25px;
+            color: white;
+            font-family: 'CustomFont', sans-serif;
+            white-space: nowrap;
+            background-size: cover;
+            background-position: center;
+        }
+        
+        .widget .content { display: flex; align-items: center; justify-content: center; gap: 8px; }
+        
+        .widget .element {
+            cursor: pointer;
+            padding: 2px 6px;
+            margin: -2px -6px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            outline: 2px solid transparent;
+        }
+        
+        .widget .element:hover { outline: 2px dashed rgba(124, 77, 255, 0.5); }
+        .widget .element.selected { outline: 2px solid #7c4dff; background: rgba(124, 77, 255, 0.2); }
+        .widget .element.element-hidden { display: none !important; }
+        
+        .widget .keyword { border-radius: 15px; padding: 3px 12px !important; margin: 0 !important; }
+        .widget .winner-avatar { border-radius: 50%; object-fit: cover; padding: 0 !important; margin: 0 !important; }
+        .widget .countdown { font-weight: bold; }
+        
+        .settings-panel {
+            width: 400px;
+            background: #252525;
+            border-left: 1px solid #333;
+            overflow-y: auto;
+            height: calc(100vh - 56px);
+        }
+        
+        .settings-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #333;
+            font-size: 14px;
+            font-weight: 500;
+            color: #fff;
+            position: sticky;
+            top: 0;
+            background: #252525;
+            z-index: 10;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .settings-header .close-btn {
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 18px;
+            display: none;
+        }
+        
+        .settings-header .close-btn:hover { color: #fff; }
+        .settings-header.has-element .close-btn { display: block; }
+        
+        .settings-section { padding: 16px 20px; border-bottom: 1px solid #333; }
+        
+        .settings-section-title {
+            font-size: 11px;
+            font-weight: 500;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+        
+        .setting-row { margin-bottom: 12px; }
+        .setting-row:last-child { margin-bottom: 0; }
+        
+        .setting-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            color: #999;
+            margin-bottom: 6px;
+        }
+        
+        .setting-value { color: #7c4dff; font-weight: 500; }
+        
+        .setting-input {
+            width: 100%;
+            padding: 10px 12px;
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 13px;
+            font-family: inherit;
+        }
+        
+        .setting-input:focus { outline: none; border-color: #7c4dff; }
+        
+        .setting-input[type="range"] {
+            padding: 0;
+            background: transparent;
+            border: none;
+            height: 6px;
+            -webkit-appearance: none;
+        }
+        
+        .setting-input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #7c4dff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        .setting-input[type="range"]::-webkit-slider-runnable-track {
+            background: #444;
+            height: 6px;
+            border-radius: 3px;
+        }
+        
+        .setting-input[type="color"] {
+            padding: 0;
+            width: 48px;
+            height: 32px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .setting-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #999;
+        }
+        
+        .setting-checkbox input {
+            width: 18px;
+            height: 18px;
+            accent-color: #7c4dff;
+            cursor: pointer;
+        }
+        
+        .setting-select {
+            width: 100%;
+            padding: 10px 12px;
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        
+        .setting-select option { background: #1e1e1e; }
+        
+        .color-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .color-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .color-item label { font-size: 12px; color: #888; }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #333;
+            padding: 0 20px;
+            position: sticky;
+            top: 52px;
+            background: #252525;
+            z-index: 10;
+        }
+        
+        .tab {
+            padding: 12px 16px;
+            font-size: 13px;
+            color: #666;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+            transition: all 0.2s;
+        }
+        
+        .tab:hover { color: #999; }
+        .tab.active { color: #7c4dff; border-bottom-color: #7c4dff; }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .btn-group { display: flex; gap: 8px; padding: 16px 20px; }
+        
+        .btn {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary { background: #7c4dff; color: #fff; }
+        .btn-primary:hover { background: #651fff; }
+        .btn-secondary { background: #333; color: #fff; }
+        .btn-secondary:hover { background: #444; }
+        
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #4caf50;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+        
+        .toast.show { opacity: 1; }
+        .hidden { display: none !important; }
+        
+        /* Element list for quick selection */
+        .element-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 12px;
+        }
+        
+        .element-btn {
+            padding: 6px 12px;
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 4px;
+            color: #888;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .element-btn:hover { border-color: #7c4dff; color: #fff; }
+        .element-btn.active { background: #7c4dff; border-color: #7c4dff; color: #fff; }
+        .element-btn.is-hidden { opacity: 0.4; text-decoration: line-through; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-logo">
+            <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l4.59-4.58L18 11l-6 6z"/></svg>
+            Giveaway
+        </div>
+        <nav class="header-nav">
+            <a href="/">Панель</a>
+            <a href="/constructor" class="active">Конструктор</a>
+        </nav>
+    </header>
+    
+    <div class="layout">
+        <div class="preview-panel">
+            <div class="preview-toolbar">
+                <div class="preview-modes">
+                    <button class="preview-mode-btn active" onclick="setMode('active', this)">Активный</button>
+                    <button class="preview-mode-btn" onclick="setMode('countdown', this)">Отсчёт</button>
+                    <button class="preview-mode-btn" onclick="setMode('winner', this)">Победитель</button>
+                </div>
+                <div class="preview-obs-note">
+                    <strong>OBS: 1080 × 600</strong>
+                    В Browser Source укажи Width 1080 и Height 600
+                </div>
+            </div>
+            
+            <div class="preview-scale-host" id="previewScaleHost">
+                <div class="preview-viewport-wrap" id="previewViewportWrap">
+                    <div class="preview-viewport" id="previewViewport">
+                        <span class="preview-viewport-label">1080 × 600</span>
+                        <div class="widget-stage align-left" id="widgetStage">
+                            <div class="widget" id="widgetPreview">
+                                <div class="content" id="activeMode">
+                                    <span class="element" data-element="label" id="el-label">✍️ Пиши в чат:</span>
+                                    <span class="element keyword" data-element="keyword" id="el-keyword">123</span>
+                                    <span class="element" data-element="separator" id="el-separator">|</span>
+                                    <span class="element" data-element="count" id="el-count">42 👥</span>
+                                </div>
+                                <div class="content hidden" id="countdownMode">
+                                    <span class="element countdown" data-element="countdown" id="el-countdown">3</span>
+                                </div>
+                                <div class="content hidden" id="winnerMode">
+                                    <span class="element" data-element="winner-label-start" id="el-winner-label-start">🏆 Победитель:</span>
+                                    <img class="element winner-avatar" data-element="avatar" id="el-avatar" src="https://yt3.ggpht.com/a/default-user=s88-c-k-c0x00ffffff-no-rj" alt="">
+                                    <span class="element" data-element="winner-name" id="el-winner-name">Username</span>
+                                    <span class="element" data-element="winner-label-end" id="el-winner-label-end">🏆</span>
+                                    <span class="element" data-element="timer" id="el-timer">⏱️ 00:15</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="preview-hint">Нажми на элемент виджета или выбери из списка справа</div>
+        </div>
+        
+        <div class="settings-panel">
+            <div class="settings-header" id="settingsHeader">
+                <span id="settingsTitle">Настройки виджета</span>
+                <button class="close-btn" onclick="deselectElement()">✕</button>
+            </div>
+            
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('general', this)">Общие</div>
+                <div class="tab" onclick="switchTab('elements', this)">Элементы</div>
+                <div class="tab" onclick="switchTab('background', this)">Фон</div>
+                <div class="tab" onclick="switchTab('effects', this)">Эффекты</div>
+            </div>
+            
+            <!-- General Tab -->
+            <div class="tab-content active" id="tab-general">
+                <div class="settings-section">
+                    <div class="settings-section-title">Размер для OBS</div>
+                    <div class="obs-size-box">
+                        <div class="obs-size-value">1080 × 600 px</div>
+                        <div class="obs-size-hint">Фиксированный размер источника в OBS</div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-section-title">Размеры полоски</div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-label">
+                            <span>Ширина</span>
+                            <span class="setting-value"><span id="widthValue">400</span> px</span>
+                        </div>
+                        <input type="range" class="setting-input" id="width" min="100" max="1080" value="400">
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-label">
+                            <span>Высота</span>
+                            <span class="setting-value"><span id="heightValue">50</span> px</span>
+                        </div>
+                        <input type="range" class="setting-input" id="height" min="30" max="300" value="50">
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-label">
+                            <span>Скругление</span>
+                            <span class="setting-value"><span id="borderRadiusValue">10</span> px</span>
+                        </div>
+                        <input type="range" class="setting-input" id="borderRadius" min="0" max="50" value="10">
+                    </div>
+
+                    <div class="setting-row">
+                        <div class="setting-label"><span>Позиция по горизонтали</span></div>
+                        <div class="align-btns">
+                            <button type="button" class="align-btn active" data-align="left" onclick="setWidgetAlign('left', this)">Слева</button>
+                            <button type="button" class="align-btn" data-align="center" onclick="setWidgetAlign('center', this)">Центр</button>
+                            <button type="button" class="align-btn" data-align="right" onclick="setWidgetAlign('right', this)">Справа</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Element Settings - показывается при выборе элемента -->
+                <div class="settings-section" id="elementSettings" style="display: none;">
+                    <div class="settings-section-title" id="elementTitle">Настройки элемента</div>
+                    
+                    <div class="setting-row" id="visibilityRow">
+                        <label class="setting-checkbox">
+                            <input type="checkbox" id="elVisible" checked>
+                            Показывать элемент
+                        </label>
+                    </div>
+                    
+                    <div class="setting-row" id="textRow">
+                        <div class="setting-label"><span>Текст</span></div>
+                        <input type="text" class="setting-input" id="elText" placeholder="Введите текст">
+                    </div>
+                    
+                    <div class="setting-row" id="fontSizeRow">
+                        <div class="setting-label">
+                            <span>Размер текста</span>
+                            <span class="setting-value"><span id="elFontSizeValue">20</span>px</span>
+                        </div>
+                        <input type="range" class="setting-input" id="elFontSize" min="10" max="60" value="20">
+                    </div>
+                    
+                    <div class="setting-row" id="colorRow">
+                        <div class="color-row">
+                            <div class="color-item">
+                                <input type="color" class="setting-input" id="elColor" value="#ffffff">
+                                <label>Цвет</label>
+                            </div>
+                            <div class="color-item" id="elBgColorRow">
+                                <input type="color" class="setting-input" id="elBgColor" value="#333333">
+                                <label>Фон</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Avatar Settings -->
+                <div class="settings-section" id="avatarSettings" style="display: none;">
+                    <div class="settings-section-title">Аватарка победителя</div>
+                    
+                    <div class="setting-row">
+                        <label class="setting-checkbox">
+                            <input type="checkbox" id="showAvatar" checked>
+                            Показывать аватарку
+                        </label>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-label">
+                            <span>Размер</span>
+                            <span class="setting-value"><span id="avatarSizeValue">40</span>px</span>
+                        </div>
+                        <input type="range" class="setting-input" id="avatarSize" min="20" max="80" value="40">
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-label">
+                            <span>Скругление</span>
+                            <span class="setting-value"><span id="avatarRadiusValue">50</span>%</span>
+                        </div>
+                        <input type="range" class="setting-input" id="avatarRadius" min="0" max="50" value="50">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Elements Tab - список всех элементов -->
+            <div class="tab-content" id="tab-elements">
+                <div class="settings-section">
+                    <div class="settings-section-title">Активный режим</div>
+                    <div class="element-list" id="activeElementsList"></div>
+                </div>
+                
+                <div class="settings-section">
+                    <div class="settings-section-title">Режим победителя</div>
+                    <div class="element-list" id="winnerElementsList"></div>
+                </div>
+                
+                <div class="settings-section">
+                    <div class="settings-section-title">Обратный отсчёт</div>
+                    <div class="element-list" id="countdownElementsList"></div>
+                </div>
+            </div>
+            
+            <!-- Background Tab -->
+            <div class="tab-content" id="tab-background">
+                <div class="settings-section">
+                    <div class="settings-section-title">Фон (активный режим)</div>
+                    
+                    <div class="setting-row">
+                        <select class="setting-select" id="bgTypeActive">
+                            <option value="gradient">Градиент</option>
+                            <option value="color">Сплошной цвет</option>
+                            <option value="image">Картинка</option>
+                        </select>
+                    </div>
+                    
+                    <div class="setting-row" id="bgActiveColors">
+                        <div class="color-row">
+                            <div class="color-item">
+                                <input type="color" class="setting-input" id="bgColor1" value="#667eea">
+                                <label>Цвет 1</label>
+                            </div>
+                            <div class="color-item">
+                                <input type="color" class="setting-input" id="bgColor2" value="#764ba2">
+                                <label>Цвет 2</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row hidden" id="bgActiveImage">
+                        <select class="setting-select" id="bgImageActive">
+                            <option value="">-- Выбрать картинку --</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="settings-section">
+                    <div class="settings-section-title">Фон (победитель)</div>
+                    
+                    <div class="setting-row">
+                        <select class="setting-select" id="bgTypeWinner">
+                            <option value="gradient">Градиент</option>
+                            <option value="color">Сплошной цвет</option>
+                            <option value="image">Картинка</option>
+                        </select>
+                    </div>
+                    
+                    <div class="setting-row" id="bgWinnerColors">
+                        <div class="color-row">
+                            <div class="color-item">
+                                <input type="color" class="setting-input" id="winnerBg1" value="#f39c12">
+                                <label>Цвет 1</label>
+                            </div>
+                            <div class="color-item">
+                                <input type="color" class="setting-input" id="winnerBg2" value="#e74c3c">
+                                <label>Цвет 2</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row hidden" id="bgWinnerImage">
+                        <select class="setting-select" id="bgImageWinner">
+                            <option value="">-- Выбрать картинку --</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Effects Tab -->
+            <div class="tab-content" id="tab-effects">
+                <div class="settings-section">
+                    <div class="settings-section-title">Обводка текста</div>
+                    
+                    <div class="setting-row">
+                        <label class="setting-checkbox">
+                            <input type="checkbox" id="strokeEnabled">
+                            Включить обводку
+                        </label>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="color-row">
+                            <div class="color-item">
+                                <input type="color" class="setting-input" id="strokeColor" value="#000000">
+                                <label>Цвет</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-label">
+                            <span>Толщина</span>
+                            <span class="setting-value"><span id="strokeWidthValue">1</span>px</span>
+                        </div>
+                        <input type="range" class="setting-input" id="strokeWidth" min="1" max="5" value="1">
+                    </div>
+                </div>
+                
+                <div class="settings-section">
+                    <div class="settings-section-title">Тень текста</div>
+                    
+                    <div class="setting-row">
+                        <label class="setting-checkbox">
+                            <input type="checkbox" id="shadowEnabled">
+                            Включить тень
+                        </label>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="color-row">
+                            <div class="color-item">
+                                <input type="color" class="setting-input" id="shadowColor" value="#000000">
+                                <label>Цвет</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-label">
+                            <span>Смещение X</span>
+                            <span class="setting-value"><span id="shadowXValue">2</span>px</span>
+                        </div>
+                        <input type="range" class="setting-input" id="shadowX" min="-10" max="10" value="2">
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-label">
+                            <span>Смещение Y</span>
+                            <span class="setting-value"><span id="shadowYValue">2</span>px</span>
+                        </div>
+                        <input type="range" class="setting-input" id="shadowY" min="-10" max="10" value="2">
+                    </div>
+                    
+                    <div class="setting-row">
+                        <div class="setting-label">
+                            <span>Размытие</span>
+                            <span class="setting-value"><span id="shadowBlurValue">4</span>px</span>
+                        </div>
+                        <input type="range" class="setting-input" id="shadowBlur" min="0" max="20" value="4">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="saveSettings()">💾 Сохранить</button>
+                <button class="btn btn-secondary" onclick="resetSettings()">Сбросить</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="toast" id="toast">✓ Сохранено</div>
+
+    <script>
+        let currentMode = 'active';
+        let selectedElement = null;
+        const BG_COLOR_FIELD_MAP = {
+            bgColor1: 'bg_color_1',
+            bgColor2: 'bg_color_2',
+            winnerBg1: 'winner_bg_1',
+            winnerBg2: 'winner_bg_2',
+        };
+
+        function bindLiveInput(id, handler) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('input', handler);
+            el.addEventListener('change', handler);
+        }
+
+        function applyWidgetAlign() {
+            const stage = document.getElementById('widgetStage');
+            if (!stage) return;
+            const align = settings.widget_align_h || 'left';
+            stage.classList.remove('align-left', 'align-center', 'align-right');
+            stage.classList.add('align-' + align);
+            document.querySelectorAll('.align-btn').forEach((btn) => {
+                btn.classList.toggle('active', btn.dataset.align === align);
+            });
+        }
+
+        function setWidgetAlign(align, btn) {
+            settings.widget_align_h = align;
+            applyWidgetAlign();
+            updatePreview();
+        }
+        const CANVAS_WIDTH = 1080;
+        const CANVAS_HEIGHT = 600;
+
+        function updatePreviewScale() {
+            const host = document.getElementById('previewScaleHost');
+            const wrap = document.getElementById('previewViewportWrap');
+            const vp = document.getElementById('previewViewport');
+            if (!host || !wrap || !vp) return;
+
+            const pad = 32;
+            const availW = Math.max(240, host.clientWidth - pad);
+            const availH = Math.max(240, host.clientHeight - pad);
+            const scaleW = availW / CANVAS_WIDTH;
+            const scaleH = availH / CANVAS_HEIGHT;
+            const scale = Math.max(0.2, Math.min(1, scaleW, scaleH));
+
+            vp.style.transform = `scale(${scale})`;
+            wrap.style.width = `${CANVAS_WIDTH * scale}px`;
+            wrap.style.height = `${CANVAS_HEIGHT * scale}px`;
+        }
+        
+        const elementConfig = {
+            'label': {
+                title: 'Текст "Пиши в чат"',
+                colorKey: 'text_color_label',
+                sizeKey: 'font_size_label',
+                visibilityKey: 'show_label',
+                textKey: 'text_label',
+                hasText: true,
+                group: 'active'
+            },
+            'keyword': {
+                title: 'Ключевое слово',
+                colorKey: 'text_color_keyword',
+                sizeKey: 'font_size_keyword',
+                visibilityKey: 'show_keyword',
+                hasBg: true,
+                bgKey: 'keyword_bg_color',
+                group: 'active'
+            },
+            'separator': {
+                title: 'Разделитель',
+                colorKey: 'text_color_separator',
+                sizeKey: 'font_size_separator',
+                visibilityKey: 'show_separator',
+                textKey: 'text_separator',
+                hasText: true,
+                group: 'active'
+            },
+            'count': {
+                title: 'Счётчик',
+                colorKey: 'text_color_count',
+                sizeKey: 'font_size_count',
+                visibilityKey: 'show_count',
+                textKey: 'text_count_suffix',
+                hasText: true,
+                textLabel: 'Суффикс (после числа)',
+                group: 'active'
+            },
+            'countdown': {
+                title: 'Обратный отсчёт',
+                colorKey: 'text_color_countdown',
+                sizeKey: 'font_size_countdown',
+                group: 'countdown'
+            },
+            'winner-label-start': {
+                title: 'Текст "Победитель" (начало)',
+                colorKey: 'text_color_winner_label',
+                sizeKey: 'font_size_winner_label',
+                visibilityKey: 'show_winner_label_start',
+                textKey: 'text_winner_label_start',
+                hasText: true,
+                group: 'winner'
+            },
+            'winner-label-end': {
+                title: 'Текст "Победитель" (конец)',
+                colorKey: 'text_color_winner_label',
+                sizeKey: 'font_size_winner_label',
+                visibilityKey: 'show_winner_label_end',
+                textKey: 'text_winner_label_end',
+                hasText: true,
+                group: 'winner'
+            },
+            'winner-name': {
+                title: 'Имя победителя',
+                colorKey: 'text_color_winner_name',
+                sizeKey: 'font_size_winner_name',
+                visibilityKey: 'show_winner_name',
+                group: 'winner'
+            },
+            'timer': {
+                title: 'Таймер ответа',
+                colorKey: 'text_color_timer',
+                sizeKey: 'font_size_timer',
+                visibilityKey: 'show_timer',
+                textKey: 'text_timer_prefix',
+                hasText: true,
+                textLabel: 'Префикс (перед временем)',
+                group: 'winner'
+            },
+            'avatar': {
+                title: 'Аватарка',
+                isAvatar: true,
+                group: 'winner'
+            }
+        };
+        
+        let settings = {};
+        let settingsLoaded = false;
+        let saveTimer = null;
+        let saveChain = Promise.resolve();
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadImages();
+            await loadSettings();
+            setupElementClicks();
+            setupInputListeners();
+            buildElementLists();
+            updatePreview();
+            requestAnimationFrame(() => {
+                updatePreviewScale();
+                setTimeout(updatePreviewScale, 50);
+            });
+            window.addEventListener('resize', updatePreviewScale);
+        });
+        
+        function buildElementLists() {
+            const activeList = document.getElementById('activeElementsList');
+            const winnerList = document.getElementById('winnerElementsList');
+            const countdownList = document.getElementById('countdownElementsList');
+            
+            Object.keys(elementConfig).forEach(key => {
+                const config = elementConfig[key];
+                const btn = document.createElement('button');
+                btn.className = 'element-btn';
+                btn.dataset.element = key;
+                btn.textContent = config.title;
+                btn.onclick = () => selectElement(key);
+                
+                if (config.group === 'active') activeList.appendChild(btn);
+                else if (config.group === 'winner') winnerList.appendChild(btn);
+                else if (config.group === 'countdown') countdownList.appendChild(btn);
+            });
+        }
+        
+        function updateElementButtons() {
+            document.querySelectorAll('.element-btn').forEach(btn => {
+                const key = btn.dataset.element;
+                const config = elementConfig[key];
+                
+                btn.classList.toggle('active', selectedElement === key);
+                
+                if (config.visibilityKey) {
+                    btn.classList.toggle('is-hidden', settings[config.visibilityKey] === false);
+                }
+                if (config.isAvatar) {
+                    btn.classList.toggle('is-hidden', settings.show_winner_avatar === false);
+                }
+            });
+        }
+        
+        function setupElementClicks() {
+            document.querySelectorAll('.widget .element').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectElement(el.dataset.element);
+                });
+            });
+            
+            document.getElementById('previewViewport').addEventListener('click', (e) => {
+                if (e.target.closest('.widget .element')) return;
+                deselectElement();
+            });
+        }
+        
+        function selectElement(elementId) {
+            document.querySelectorAll('.widget .element').forEach(el => el.classList.remove('selected'));
+            
+            const el = document.querySelector(`[data-element="${elementId}"]`);
+            if (el) el.classList.add('selected');
+            
+            selectedElement = elementId;
+            
+            const config = elementConfig[elementId];
+            if (!config) return;
+            
+            document.getElementById('settingsTitle').textContent = config.title;
+            document.getElementById('settingsHeader').classList.add('has-element');
+            
+            if (config.isAvatar) {
+                document.getElementById('elementSettings').style.display = 'none';
+                document.getElementById('avatarSettings').style.display = 'block';
+                
+                document.getElementById('showAvatar').checked = settings.show_winner_avatar !== false;
+                document.getElementById('avatarSize').value = settings.winner_avatar_size || 40;
+                document.getElementById('avatarRadius').value = settings.winner_avatar_border_radius || 50;
+            } else {
+                document.getElementById('elementSettings').style.display = 'block';
+                document.getElementById('avatarSettings').style.display = 'none';
+                document.getElementById('elementTitle').textContent = config.title;
+                
+                // Visibility
+                if (config.visibilityKey) {
+                    document.getElementById('visibilityRow').style.display = 'block';
+                    document.getElementById('elVisible').checked = settings[config.visibilityKey] !== false;
+                } else {
+                    document.getElementById('visibilityRow').style.display = 'none';
+                }
+                
+                // Text
+                if (config.hasText && config.textKey) {
+                    document.getElementById('textRow').style.display = 'block';
+                    document.getElementById('elText').value = settings[config.textKey] || '';
+                    document.getElementById('elText').placeholder = config.textLabel || 'Введите текст';
+                } else {
+                    document.getElementById('textRow').style.display = 'none';
+                }
+                
+                // Font size
+                document.getElementById('fontSizeRow').style.display = 'block';
+                document.getElementById('elFontSize').value = settings[config.sizeKey] || 20;
+                document.getElementById('elFontSizeValue').textContent = settings[config.sizeKey] || 20;
+                
+                // Color
+                document.getElementById('colorRow').style.display = 'block';
+                document.getElementById('elColor').value = settings[config.colorKey] || '#ffffff';
+                
+                // Background
+                if (config.hasBg) {
+                    document.getElementById('elBgColorRow').style.display = 'flex';
+                    const bgColor = settings[config.bgKey] || '#333333';
+                    document.getElementById('elBgColor').value = bgColor.startsWith('rgba') ? '#333333' : bgColor;
+                } else {
+                    document.getElementById('elBgColorRow').style.display = 'none';
+                }
+            }
+            
+            updateValueDisplays();
+            updateElementButtons();
+            switchTab('general', document.querySelector('.tab'));
+        }
+        
+        function deselectElement() {
+            document.querySelectorAll('.widget .element').forEach(el => el.classList.remove('selected'));
+            selectedElement = null;
+            document.getElementById('settingsTitle').textContent = 'Настройки виджета';
+            document.getElementById('settingsHeader').classList.remove('has-element');
+            document.getElementById('elementSettings').style.display = 'none';
+            document.getElementById('avatarSettings').style.display = 'none';
+            updateElementButtons();
+        }
+        
+        function setupInputListeners() {
+            // Widget size
+            ['width', 'height', 'borderRadius'].forEach(id => {
+                document.getElementById(id).addEventListener('input', () => {
+                    const key = id === 'borderRadius' ? 'border_radius' : id;
+                    settings[key] = parseInt(document.getElementById(id).value, 10);
+                    updateValueDisplays();
+                    updatePreview();
+                });
+            });
+            
+            // Element visibility
+            document.getElementById('elVisible').addEventListener('change', () => {
+                if (selectedElement && elementConfig[selectedElement]?.visibilityKey) {
+                    settings[elementConfig[selectedElement].visibilityKey] = document.getElementById('elVisible').checked;
+                    updatePreview();
+                    updateElementButtons();
+                }
+            });
+            
+            // Element text
+            document.getElementById('elText').addEventListener('input', () => {
+                if (selectedElement && elementConfig[selectedElement]?.textKey) {
+                    settings[elementConfig[selectedElement].textKey] = document.getElementById('elText').value;
+                    updatePreview();
+                }
+            });
+            
+            // Element font size
+            document.getElementById('elFontSize').addEventListener('input', () => {
+                if (selectedElement && elementConfig[selectedElement]?.sizeKey) {
+                    settings[elementConfig[selectedElement].sizeKey] = parseInt(document.getElementById('elFontSize').value);
+                    document.getElementById('elFontSizeValue').textContent = document.getElementById('elFontSize').value;
+                    updatePreview();
+                }
+            });
+            
+            // Element color
+            document.getElementById('elColor').addEventListener('input', () => {
+                if (selectedElement && elementConfig[selectedElement]?.colorKey) {
+                    settings[elementConfig[selectedElement].colorKey] = document.getElementById('elColor').value;
+                    updatePreview();
+                }
+            });
+            
+            // Element background
+            document.getElementById('elBgColor').addEventListener('input', () => {
+                if (selectedElement && elementConfig[selectedElement]?.bgKey) {
+                    settings[elementConfig[selectedElement].bgKey] = document.getElementById('elBgColor').value;
+                    updatePreview();
+                }
+            });
+            
+            // Avatar
+            document.getElementById('showAvatar').addEventListener('change', () => {
+                settings.show_winner_avatar = document.getElementById('showAvatar').checked;
+                updatePreview();
+                updateElementButtons();
+            });
+            
+            document.getElementById('avatarSize').addEventListener('input', () => {
+                settings.winner_avatar_size = parseInt(document.getElementById('avatarSize').value);
+                updateValueDisplays();
+                updatePreview();
+            });
+            
+            document.getElementById('avatarRadius').addEventListener('input', () => {
+                settings.winner_avatar_border_radius = parseInt(document.getElementById('avatarRadius').value);
+                updateValueDisplays();
+                updatePreview();
+            });
+            
+            // Background type
+            ['bgTypeActive', 'bgTypeWinner'].forEach(id => {
+                document.getElementById(id).addEventListener('change', () => {
+                    settings[id === 'bgTypeActive' ? 'bg_type_active' : 'bg_type_winner'] = document.getElementById(id).value;
+                    updateBgVisibility();
+                    updatePreview();
+                });
+            });
+            
+            // Background colors
+            Object.keys(BG_COLOR_FIELD_MAP).forEach((id) => {
+                bindLiveInput(id, () => {
+                    settings[BG_COLOR_FIELD_MAP[id]] = document.getElementById(id).value;
+                    updatePreview();
+                });
+            });
+            
+            // Background images
+            ['bgImageActive', 'bgImageWinner'].forEach(id => {
+                document.getElementById(id).addEventListener('change', () => {
+                    settings[id === 'bgImageActive' ? 'bg_image_active' : 'bg_image_winner'] = document.getElementById(id).value;
+                    updatePreview();
+                });
+            });
+            
+            // Stroke
+            document.getElementById('strokeEnabled').addEventListener('change', () => {
+                settings.text_stroke_enabled = document.getElementById('strokeEnabled').checked;
+                updatePreview();
+            });
+            
+            document.getElementById('strokeColor').addEventListener('input', () => {
+                settings.text_stroke_color = document.getElementById('strokeColor').value;
+                updatePreview();
+            });
+            
+            document.getElementById('strokeWidth').addEventListener('input', () => {
+                settings.text_stroke_width = parseInt(document.getElementById('strokeWidth').value);
+                updateValueDisplays();
+                updatePreview();
+            });
+            
+            // Shadow
+            document.getElementById('shadowEnabled').addEventListener('change', () => {
+                settings.text_shadow_enabled = document.getElementById('shadowEnabled').checked;
+                updatePreview();
+            });
+            
+            document.getElementById('shadowColor').addEventListener('input', () => {
+                settings.text_shadow_color = document.getElementById('shadowColor').value;
+                updatePreview();
+            });
+            
+            ['shadowX', 'shadowY', 'shadowBlur'].forEach(id => {
+                document.getElementById(id).addEventListener('input', () => {
+                    const key = 'text_shadow_' + id.replace('shadow', '').toLowerCase();
+                    settings[key] = parseInt(document.getElementById(id).value);
+                    updateValueDisplays();
+                    updatePreview();
+                });
+            });
+        }
+        
+        function updateValueDisplays() {
+            document.getElementById('widthValue').textContent = settings.width || 400;
+            document.getElementById('heightValue').textContent = settings.height || 50;
+            document.getElementById('borderRadiusValue').textContent = settings.border_radius ?? 10;
+            document.getElementById('avatarSizeValue').textContent = settings.winner_avatar_size || 40;
+            document.getElementById('avatarRadiusValue').textContent = settings.winner_avatar_border_radius || 50;
+            document.getElementById('strokeWidthValue').textContent = settings.text_stroke_width || 1;
+            document.getElementById('shadowXValue').textContent = settings.text_shadow_x || 2;
+            document.getElementById('shadowYValue').textContent = settings.text_shadow_y || 2;
+            document.getElementById('shadowBlurValue').textContent = settings.text_shadow_blur || 4;
+        }
+        
+        function updateBgVisibility() {
+            const activeType = document.getElementById('bgTypeActive').value;
+            document.getElementById('bgActiveColors').classList.toggle('hidden', activeType === 'image');
+            document.getElementById('bgActiveImage').classList.toggle('hidden', activeType !== 'image');
+            
+            const winnerType = document.getElementById('bgTypeWinner').value;
+            document.getElementById('bgWinnerColors').classList.toggle('hidden', winnerType === 'image');
+            document.getElementById('bgWinnerImage').classList.toggle('hidden', winnerType !== 'image');
+        }
+        
+        function getTextStyle() {
+            let style = '';
+            if (settings.text_stroke_enabled) {
+                style += `-webkit-text-stroke: ${settings.text_stroke_width || 1}px ${settings.text_stroke_color || '#000'};`;
+            }
+            if (settings.text_shadow_enabled) {
+                style += `text-shadow: ${settings.text_shadow_x || 2}px ${settings.text_shadow_y || 2}px ${settings.text_shadow_blur || 4}px ${settings.text_shadow_color || '#000'};`;
+            }
+            return style;
+        }
+        
+        function scheduleAutoSave() {
+            if (!settingsLoaded) return;
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(() => saveSettings(true), 500);
+        }
+        
+        function updatePreview() {
+            const widget = document.getElementById('widgetPreview');
+            const textStyle = getTextStyle();
+            const barWidth = settings.width || 400;
+            const barHeight = settings.height || 50;
+            
+            widget.style.width = barWidth + 'px';
+            widget.style.minWidth = barWidth + 'px';
+            widget.style.height = barHeight + 'px';
+            widget.style.borderRadius = (settings.border_radius ?? 10) + 'px';
+            applyWidgetAlign();
+            
+            // Background
+            if (currentMode === 'winner' || currentMode === 'countdown') {
+                if (settings.bg_type_winner === 'image' && settings.bg_image_winner) {
+                    widget.style.background = `url('images/${settings.bg_image_winner}') center/cover`;
+                } else if (settings.bg_type_winner === 'color') {
+                    widget.style.background = settings.winner_bg_1 || '#f39c12';
+                } else {
+                    widget.style.background = `linear-gradient(135deg, ${settings.winner_bg_1 || '#f39c12'} 0%, ${settings.winner_bg_2 || '#e74c3c'} 100%)`;
+                }
+            } else {
+                if (settings.bg_type_active === 'image' && settings.bg_image_active) {
+                    widget.style.background = `url('images/${settings.bg_image_active}') center/cover`;
+                } else if (settings.bg_type_active === 'color') {
+                    widget.style.background = settings.bg_color_1 || '#667eea';
+                } else {
+                    widget.style.background = `linear-gradient(135deg, ${settings.bg_color_1 || '#667eea'} 0%, ${settings.bg_color_2 || '#764ba2'} 100%)`;
+                }
+            }
+            
+            // Apply each element
+            Object.keys(elementConfig).forEach(key => {
+                const config = elementConfig[key];
+                const el = document.getElementById('el-' + key);
+                if (!el) return;
+                
+                if (config.isAvatar) {
+                    el.style.width = (settings.winner_avatar_size || 40) + 'px';
+                    el.style.height = (settings.winner_avatar_size || 40) + 'px';
+                    el.style.borderRadius = (settings.winner_avatar_border_radius || 50) + '%';
+                    el.classList.toggle('element-hidden', settings.show_winner_avatar === false);
+                    return;
+                }
+                
+                const visible = config.visibilityKey ? settings[config.visibilityKey] !== false : true;
+                const color = settings[config.colorKey] || '#ffffff';
+                const size = settings[config.sizeKey] || 20;
+                
+                // Update text content
+                if (config.hasText && config.textKey) {
+                    let text = settings[config.textKey] || '';
+                    if (config.textKey === 'text_count_suffix') {
+                        text = '42 ' + text;
+                    } else if (config.textKey === 'text_timer_prefix') {
+                        text = text + ' 00:15';
+                    }
+                    el.textContent = text;
+                }
+                
+                // Build style
+                let style = `color: ${color}; font-size: ${size}px; ${textStyle}`;
+                
+                if (config.hasBg) {
+                    const bg = settings[config.bgKey] || 'rgba(255,255,255,0.2)';
+                    style += `background: ${bg}; padding: 3px 12px; border-radius: 15px;`;
+                }
+                
+                el.style.cssText = style;
+                el.classList.toggle('element-hidden', !visible);
+            });
+            scheduleAutoSave();
+        }
+        
+        function setMode(mode, btn) {
+            currentMode = mode;
+            
+            document.querySelectorAll('.preview-mode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            document.getElementById('activeMode').classList.toggle('hidden', mode !== 'active');
+            document.getElementById('countdownMode').classList.toggle('hidden', mode !== 'countdown');
+            document.getElementById('winnerMode').classList.toggle('hidden', mode !== 'winner');
+            
+            deselectElement();
+            updatePreview();
+            updatePreviewScale();
+        }
+        
+        function switchTab(tabName, btn) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            btn.classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
+        }
+        
+        async function loadSettings() {
+            try {
+                const res = await fetch('/api/widget-settings');
+                settings = await res.json();
+                
+                document.getElementById('width').value = settings.width || 400;
+                document.getElementById('height').value = settings.height || 50;
+                document.getElementById('borderRadius').value = settings.border_radius ?? 10;
+                settings.widget_align_h = settings.widget_align_h || 'left';
+                applyWidgetAlign();
+                document.getElementById('bgTypeActive').value = settings.bg_type_active || 'gradient';
+                document.getElementById('bgColor1').value = settings.bg_color_1 || '#667eea';
+                document.getElementById('bgColor2').value = settings.bg_color_2 || '#764ba2';
+                document.getElementById('bgImageActive').value = settings.bg_image_active || '';
+                document.getElementById('bgTypeWinner').value = settings.bg_type_winner || 'gradient';
+                document.getElementById('winnerBg1').value = settings.winner_bg_1 || '#f39c12';
+                document.getElementById('winnerBg2').value = settings.winner_bg_2 || '#e74c3c';
+                document.getElementById('bgImageWinner').value = settings.bg_image_winner || '';
+                document.getElementById('strokeEnabled').checked = settings.text_stroke_enabled || false;
+                document.getElementById('strokeColor').value = settings.text_stroke_color || '#000000';
+                document.getElementById('strokeWidth').value = settings.text_stroke_width || 1;
+                document.getElementById('shadowEnabled').checked = settings.text_shadow_enabled || false;
+                document.getElementById('shadowColor').value = settings.text_shadow_color || '#000000';
+                document.getElementById('shadowX').value = settings.text_shadow_x || 2;
+                document.getElementById('shadowY').value = settings.text_shadow_y || 2;
+                document.getElementById('shadowBlur').value = settings.text_shadow_blur || 4;
+                document.getElementById('showAvatar').checked = settings.show_winner_avatar !== false;
+                document.getElementById('avatarSize').value = settings.winner_avatar_size || 40;
+                document.getElementById('avatarRadius').value = settings.winner_avatar_border_radius || 50;
+                
+                updateBgVisibility();
+                updateValueDisplays();
+                updatePreview();
+                updateElementButtons();
+                updatePreviewScale();
+                settingsLoaded = true;
+            } catch (e) {
+                console.error('Error loading settings:', e);
+                settingsLoaded = true;
+            }
+        }
+        
+        async function loadImages() {
+            try {
+                const res = await fetch('/api/images');
+                const images = await res.json();
+                
+                ['bgImageActive', 'bgImageWinner'].forEach(id => {
+                    const select = document.getElementById(id);
+                    select.innerHTML = '<option value="">-- Выбрать картинку --</option>';
+                    images.forEach(img => {
+                        select.innerHTML += `<option value="${img}">${img}</option>`;
+                    });
+                });
+            } catch (e) {
+                console.error('Error loading images:', e);
+            }
+        }
+        
+        function saveSettings(silent = false) {
+            saveChain = saveChain.then(() => performSave(silent)).catch(() => performSave(silent));
+            return saveChain;
+        }
+
+        async function performSave(silent = false) {
+            try {
+                const res = await fetch('/api/widget-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || data.success === false) {
+                    throw new Error(data.error || ('HTTP ' + res.status));
+                }
+                if (data.settings) {
+                    settings = data.settings;
+                }
+
+                if (!silent) {
+                    const toast = document.getElementById('toast');
+                    toast.classList.add('show');
+                    setTimeout(() => toast.classList.remove('show'), 2000);
+                }
+            } catch (e) {
+                console.error('Error saving settings:', e);
+                if (!silent) {
+                    alert('Ошибка сохранения: ' + (e.message || e));
+                }
+            }
+        }
+        
+        function resetSettings() {
+            if (confirm('Сбросить все настройки к значениям по умолчанию?')) {
+                fetch('/api/widget-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ _reset: true })
+                }).then(() => {
+                    location.reload();
+                });
+            }
+        }
+    </script>
+</body>
+</html>

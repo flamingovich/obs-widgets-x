@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBS Dock — розыгрыш + колесо</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            font-size: 12px;
+            background: #141418;
+            color: #e8e8ec;
+            line-height: 1.35;
+            padding: 10px 10px 14px;
+        }
+        h1 {
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0 0 8px;
+            color: #fff;
+        }
+        .hint {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 10px;
+        }
+        .section {
+            border: 1px solid #2c2c34;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #1a1a20;
+        }
+        .section h2 {
+            margin: 0 0 8px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #9b8fd9;
+        }
+        label {
+            display: block;
+            font-size: 10px;
+            color: #888;
+            margin: 6px 0 2px;
+        }
+        input[type="text"], input[type="url"] {
+            width: 100%;
+            padding: 6px 8px;
+            border-radius: 5px;
+            border: 1px solid #333;
+            background: #0e0e12;
+            color: #eee;
+            font-size: 12px;
+        }
+        .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+        .row > button { flex: 1; min-width: 72px; }
+        button {
+            padding: 6px 8px;
+            border-radius: 5px;
+            border: 1px solid #444;
+            background: #2a2a32;
+            color: #eee;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        button:hover:not(:disabled) { background: #36363f; border-color: #555; }
+        button:disabled { opacity: 0.45; cursor: not-allowed; }
+        button.primary { background: #4a3f7a; border-color: #6b5cb5; }
+        button.danger { background: #5a2a2a; border-color: #844; }
+        .check { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 11px; color: #bbb; }
+        .status {
+            margin-top: 8px;
+            padding: 6px 8px;
+            border-radius: 5px;
+            background: #0e0e12;
+            font-size: 11px;
+            color: #9a9;
+            min-height: 18px;
+        }
+        .status.err { color: #f88; }
+        .winner-only { display: none; }
+        .winner-only.show { display: block; }
+        .timer-big {
+            font-family: ui-monospace, monospace;
+            font-size: 20px;
+            font-weight: 700;
+            margin: 6px 0;
+        }
+        .timer-big.stopped { color: #7d7; }
+        .timer-big.wait { color: #fc6; }
+        #msgList {
+            max-height: 140px;
+            overflow-y: auto;
+            margin-top: 6px;
+            padding: 0;
+            list-style: none;
+        }
+        #msgList li {
+            padding: 4px 6px;
+            border-bottom: 1px solid #2a2a32;
+            font-size: 11px;
+        }
+        #msgList .t { color: #888; margin-right: 6px; }
+        .dot {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #444;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+        .dot.on { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+    </style>
+</head>
+<body>
+    <h1>OBS Dock</h1>
+
+    <div class="section">
+        <h2>Розыгрыш YouTube</h2>
+        <p class="hint" style="margin:0 0 6px;"><span class="dot" id="gwDot"></span><span id="gwLine">—</span></p>
+        <label>Канал (@handle или ссылка)</label>
+        <input type="text" id="channelInput" placeholder="@channel" autocomplete="off">
+        <div class="row">
+            <button type="button" id="btnSaveChannel">Сохранить ссылку</button>
+            <button type="button" id="btnReconnect">Переподключить чат</button>
+        </div>
+        <label>Ключевое слово</label>
+        <input type="text" id="keywordInput" placeholder="Кодовое слово" autocomplete="off">
+        <label class="check"><input type="checkbox" id="acceptAny"> Засчитывать любое сообщение</label>
+        <div class="row">
+            <button type="button" id="btnApplyKeyword">Применить слово</button>
+        </div>
+        <div class="row">
+            <button type="button" class="primary" id="btnStart">Запуск</button>
+            <button type="button" id="btnStartTest">Тест запуск</button>
+            <button type="button" id="btnAddTestParticipant" style="display:none;">Добавить участника</button>
+            <button type="button" id="btnStop">Стоп</button>
+            <button type="button" class="primary" id="btnPick">Победитель</button>
+        </div>
+        <div class="row">
+            <button type="button" id="btnReroll">Реролл</button>
+            <button type="button" class="danger" id="btnResetGw">Сброс</button>
+        </div>
+        <div class="status" id="gwMeta">Участников: — · Ключ: —</div>
+    </div>
+
+    <div class="section">
+        <h2>Колесо</h2>
+        <div class="row">
+            <button type="button" class="primary" id="btnSpin">Крутить</button>
+            <button type="button" id="btnWidgetShow">Показать виджет</button>
+            <button type="button" id="btnWidgetHide">Скрыть виджет</button>
+        </div>
+        <div class="row">
+            <button type="button" id="btnResetWheel">Сброс колеса</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Карта</h2>
+        <div class="row">
+            <button type="button" id="btnCardShow">Показать (рубашка)</button>
+            <button type="button" id="btnCardReveal">Показать результат</button>
+            <button type="button" id="btnCardHide">Скрыть</button>
+        </div>
+    </div>
+
+    <div class="section winner-only" id="winnerBlock">
+        <h2>После выбора победителя</h2>
+        <div id="winnerName" style="font-weight:700;font-size:13px;margin-bottom:4px;"></div>
+        <div id="timerLabel" style="font-size:11px;color:#888;">Таймер ответа</div>
+        <div class="timer-big wait" id="timerValue">00:00</div>
+        <div id="timerHint" style="font-size:11px;color:#888;">—</div>
+        <label style="margin-top:8px;">Сообщения победителя</label>
+        <ul id="msgList"></ul>
+    </div>
+
+    <div class="status" id="dockStatus"></div>
+
+    <script>
+        const CARD_RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+        const CARD_SUITS = ['diamonds','hearts','clubs','spades'];
+        let cardRound = null;
+        let lastMsgSig = '';
+
+        function wheelBase() {
+            return window.location.origin;
+        }
+
+        function setStatus(el, text, isErr) {
+            const n = el || document.getElementById('dockStatus');
+            n.textContent = text || '';
+            n.classList.toggle('err', !!isErr);
+        }
+
+        function formatTime(seconds) {
+            if (seconds == null || !isFinite(seconds)) return '00:00';
+            const s = Math.max(0, Math.floor(seconds));
+            const m = Math.floor(s / 60);
+            const r = s % 60;
+            return String(m).padStart(2,'0') + ':' + String(r).padStart(2,'0');
+        }
+
+        async function gwFetch(path, opts) {
+            const res = await fetch(path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opts));
+            return res;
+        }
+
+        async function wheelFetch(path, opts) {
+            const base = wheelBase();
+            const url = base + path;
+            const o = Object.assign({}, opts);
+            const method = String(o.method || 'GET').toUpperCase();
+            if (method !== 'GET' && method !== 'HEAD') {
+                o.headers = Object.assign({ 'Content-Type': 'application/json' }, o.headers || {});
+            } else {
+                o.headers = o.headers ? Object.assign({}, o.headers) : {};
+            }
+            return fetch(url, o);
+        }
+
+        async function loadChannel() {
+            try {
+                const res = await fetch('/api/channel');
+                const d = await res.json();
+                if (d && d.channel_id) document.getElementById('channelInput').value = d.channel_id;
+            } catch (_) {}
+        }
+
+        document.getElementById('btnSaveChannel').addEventListener('click', async () => {
+            const channel_id = document.getElementById('channelInput').value.trim();
+            await gwFetch('/api/channel', { method: 'POST', body: JSON.stringify({ channel_id }) });
+            setStatus(null, 'Ссылка на канал сохранена');
+        });
+
+        document.getElementById('btnReconnect').addEventListener('click', async () => {
+            const channel = document.getElementById('channelInput').value.trim();
+            const res = await gwFetch('/api/reconnect-chat', { method: 'POST', body: JSON.stringify({ channel }) });
+            const d = await res.json().catch(() => ({}));
+            if (d.success) {
+                setStatus(null, d.saved_only ? 'Канал сохранён (чат не запущен)' : 'Чат переподключён');
+            } else {
+                setStatus(null, d.error || 'Ошибка переподключения', true);
+            }
+        });
+
+        document.getElementById('btnApplyKeyword').addEventListener('click', async () => {
+            const keyword = document.getElementById('keywordInput').value.trim();
+            const accept_any_message = document.getElementById('acceptAny').checked;
+            await gwFetch('/api/giveaway-update', {
+                method: 'POST',
+                body: JSON.stringify({ keyword, accept_any_message })
+            });
+            setStatus(null, 'Ключевое слово / режим обновлены');
+        });
+
+        document.getElementById('btnStart').addEventListener('click', async () => {
+            const channel = document.getElementById('channelInput').value.trim();
+            const keyword = document.getElementById('keywordInput').value.trim();
+            const accept_any_message = document.getElementById('acceptAny').checked;
+            if (!channel) { setStatus(null, 'Укажите канал', true); return; }
+            if (!accept_any_message && !keyword) { setStatus(null, 'Ключевое слово или «любое сообщение»', true); return; }
+            const res = await gwFetch('/api/start', {
+                method: 'POST',
+                body: JSON.stringify({ channel, keyword, accept_any_message })
+            });
+            const d = await res.json().catch(() => ({}));
+            if (!d.success) setStatus(null, d.error || 'Ошибка запуска', true);
+            else setStatus(null, 'Розыгрыш запущен');
+        });
+
+        document.getElementById('btnStartTest').addEventListener('click', async () => {
+            const keyword = document.getElementById('keywordInput').value.trim();
+            const accept_any_message = document.getElementById('acceptAny').checked;
+            const res = await gwFetch('/api/start-test', {
+                method: 'POST',
+                body: JSON.stringify({ keyword, accept_any_message })
+            });
+            const d = await res.json().catch(() => ({}));
+            if (!d.success) setStatus(null, d.error || 'Ошибка запуска теста', true);
+            else setStatus(null, 'Тестовый розыгрыш запущен');
+        });
+
+        document.getElementById('btnAddTestParticipant').addEventListener('click', async () => {
+            const res = await gwFetch('/api/test-add-participant', { method: 'POST', body: '{}' });
+            const d = await res.json().catch(() => ({}));
+            if (!d.success) setStatus(null, d.error || 'Не удалось добавить участника', true);
+            else setStatus(null, 'Тестовый участник добавлен');
+        });
+
+        document.getElementById('btnStop').addEventListener('click', async () => {
+            await gwFetch('/api/stop', { method: 'POST', body: '{}' });
+            setStatus(null, 'Стоп');
+        });
+
+        document.getElementById('btnPick').addEventListener('click', async () => {
+            await gwFetch('/api/pick', { method: 'POST', body: '{}' });
+        });
+
+        document.getElementById('btnReroll').addEventListener('click', async () => {
+            const res = await gwFetch('/api/reroll', { method: 'POST', body: '{}' });
+            const d = await res.json().catch(() => ({}));
+            if (!d.success) setStatus(null, d.error || 'Реролл невозможен', true);
+        });
+
+        document.getElementById('btnResetGw').addEventListener('click', async () => {
+            if (!confirm('Сбросить розыгрыш полностью?')) return;
+            await gwFetch('/api/reset', { method: 'POST', body: '{}' });
+            document.getElementById('keywordInput').value = '';
+            setStatus(null, 'Сброс');
+        });
+
+        async function getWheelState() {
+            const res = await wheelFetch('/api/state', { method: 'GET', headers: {} });
+            const j = await res.json();
+            if (!j || !j.ok || !j.state) throw new Error('Нет состояния колеса');
+            return j.state;
+        }
+
+        async function postWheelStatePatch(patch) {
+            const st = await getWheelState();
+            const body = {
+                chances: st.chances || {},
+                history: st.history || [],
+                caseWeights: st.caseWeights || {},
+                wheelPrizes: st.wheelPrizes || [],
+                caseTables: st.caseTables || {},
+                widgetVisible: typeof st.widgetVisible === 'boolean' ? st.widgetVisible : false,
+                ...patch
+            };
+            await wheelFetch('/api/state', { method: 'POST', body: JSON.stringify(body) });
+        }
+
+        document.getElementById('btnSpin').addEventListener('click', async () => {
+            try {
+                const st = await getWheelState();
+                await wheelFetch('/api/spin', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        payload: {},
+                        chances: st.chances,
+                        caseWeights: st.caseWeights,
+                        wheelPrizes: st.wheelPrizes,
+                        caseTables: st.caseTables
+                    })
+                });
+                setStatus(null, 'Спин отправлен');
+            } catch (e) {
+                setStatus(null, 'Колесо: ' + e, true);
+            }
+        });
+
+        document.getElementById('btnWidgetShow').addEventListener('click', async () => {
+            try {
+                await postWheelStatePatch({ widgetVisible: true });
+                setStatus(null, 'Виджет колеса: показать');
+            } catch (e) { setStatus(null, String(e), true); }
+        });
+
+        document.getElementById('btnWidgetHide').addEventListener('click', async () => {
+            try {
+                await postWheelStatePatch({ widgetVisible: false });
+                setStatus(null, 'Виджет колеса: скрыть');
+            } catch (e) { setStatus(null, String(e), true); }
+        });
+
+        document.getElementById('btnResetWheel').addEventListener('click', async () => {
+            try {
+                await wheelFetch('/api/reset-wheel', {
+                    method: 'POST',
+                    body: JSON.stringify({ ts: Date.now() })
+                });
+                setStatus(null, 'Сброс колеса отправлен');
+            } catch (e) { setStatus(null, String(e), true); }
+        });
+
+        function rnd(n) { return Math.floor(Math.random() * n); }
+
+        document.getElementById('btnCardShow').addEventListener('click', async () => {
+            try {
+                cardRound = { rank: CARD_RANKS[rnd(CARD_RANKS.length)], suit: CARD_SUITS[rnd(CARD_SUITS.length)] };
+                await wheelFetch('/api/card-command', {
+                    method: 'POST',
+                    body: JSON.stringify({ type: 'show', ts: Date.now(), payload: {} })
+                });
+                setStatus(null, 'Карта: рубашка');
+            } catch (e) { setStatus(null, String(e), true); }
+        });
+
+        document.getElementById('btnCardReveal').addEventListener('click', async () => {
+            try {
+                if (!cardRound) {
+                    cardRound = { rank: CARD_RANKS[rnd(CARD_RANKS.length)], suit: CARD_SUITS[rnd(CARD_SUITS.length)] };
+                }
+                await wheelFetch('/api/card-command', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        type: 'reveal',
+                        ts: Date.now(),
+                        payload: { rank: cardRound.rank, suit: cardRound.suit }
+                    })
+                });
+                setStatus(null, 'Карта: раскрыта');
+            } catch (e) { setStatus(null, String(e), true); }
+        });
+
+        document.getElementById('btnCardHide').addEventListener('click', async () => {
+            try {
+                cardRound = null;
+                await wheelFetch('/api/card-command', {
+                    method: 'POST',
+                    body: JSON.stringify({ type: 'hide', ts: Date.now(), payload: {} })
+                });
+                setStatus(null, 'Карта скрыта');
+            } catch (e) { setStatus(null, String(e), true); }
+        });
+
+        function messagesSignature(data) {
+            return JSON.stringify({
+                w: data.winner || '',
+                m: data.winner_messages || []
+            });
+        }
+
+        async function pollGiveaway() {
+            try {
+                const res = await fetch('/api/status');
+                const d = await res.json();
+
+                const dot = document.getElementById('gwDot');
+                const line = document.getElementById('gwLine');
+                if (d.countdown > 0) {
+                    dot.className = 'dot on';
+                    line.textContent = 'Отсчёт: ' + d.countdown;
+                } else if (d.is_test_mode && d.is_active) {
+                    dot.className = 'dot on';
+                    line.textContent = 'Тестовый режим';
+                } else if (d.is_active && d.is_connected) {
+                    dot.className = 'dot on';
+                    line.textContent = 'Чат подключён';
+                } else if (d.is_active) {
+                    dot.className = 'dot on';
+                    line.textContent = 'Подключение…';
+                } else if (d.winner) {
+                    dot.className = 'dot on';
+                    line.textContent = 'Победитель выбран';
+                } else {
+                    dot.className = 'dot';
+                    line.textContent = 'Не активен';
+                }
+
+                document.getElementById('gwMeta').textContent =
+                    'Участников: ' + d.count + ' · Ключ: ' + (d.keyword || '—') +
+                    (d.accept_any_message ? ' (любое сообщение)' : '');
+
+                const kwEl = document.getElementById('keywordInput');
+                if (document.activeElement !== kwEl) kwEl.value = d.keyword || '';
+                const accEl = document.getElementById('acceptAny');
+                if (document.activeElement !== accEl) accEl.checked = !!d.accept_any_message;
+
+                document.getElementById('btnStart').disabled = !!(d.is_active || d.winner);
+                document.getElementById('btnStartTest').disabled = !!(d.is_active || d.winner);
+                document.getElementById('btnStop').disabled = !d.is_active;
+                document.getElementById('btnPick').disabled = d.count === 0 || !!d.winner;
+                document.getElementById('btnReroll').disabled = !d.winner || d.count === 0;
+                const addTestBtn = document.getElementById('btnAddTestParticipant');
+                if (d.is_test_mode) {
+                    addTestBtn.style.display = '';
+                    addTestBtn.disabled = d.countdown > 0;
+                } else {
+                    addTestBtn.style.display = 'none';
+                }
+
+                const wb = document.getElementById('winnerBlock');
+                if (d.winner) {
+                    wb.classList.add('show');
+                    document.getElementById('winnerName').textContent = d.winner;
+                    const tv = document.getElementById('timerValue');
+                    const th = document.getElementById('timerHint');
+                    tv.textContent = formatTime(d.timer_seconds);
+                    if (d.timer_stopped) {
+                        tv.className = 'timer-big stopped';
+                        th.textContent = 'Время до первого сообщения победителя (зафиксировано)';
+                    } else {
+                        tv.className = 'timer-big wait';
+                        th.textContent = 'Ждём первое сообщение победителя в чате…';
+                    }
+                    const sig = messagesSignature(d);
+                    if (sig !== lastMsgSig) {
+                        lastMsgSig = sig;
+                        const ul = document.getElementById('msgList');
+                        ul.innerHTML = '';
+                        (d.winner_messages || []).forEach((row) => {
+                            const li = document.createElement('li');
+                            li.innerHTML = '<span class="t">' + (row.time || '') + '</span>' + escapeHtml(row.text || '');
+                            ul.appendChild(li);
+                        });
+                    }
+                } else {
+                    wb.classList.remove('show');
+                    lastMsgSig = '';
+                }
+            } catch (_) {}
+        }
+
+        function escapeHtml(s) {
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        (function init() {
+            loadChannel();
+            pollGiveaway();
+            setInterval(pollGiveaway, 500);
+        })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Депозит / Вывод</title>
+  <style>
+    @font-face {
+      font-family: "Unbounded";
+      src: url("Unbounded-SemiBold.ttf") format("truetype");
+      font-weight: 600;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: "Unbounded", system-ui, sans-serif;
+      font-weight: 600;
+      -webkit-font-smoothing: antialiased;
+    }
+    body.mode-overlay {
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 100%;
+      overflow: hidden;
+    }
+    body.mode-dock {
+      background: radial-gradient(120% 80% at 50% 0%, #2a2a38 0%, #16161c 55%, #0f0f12 100%);
+      color: #ececf1;
+      min-height: 100%;
+      padding: 14px;
+    }
+
+    /* ——— оверлей ——— */
+    .bar {
+      display: flex;
+      align-items: stretch;
+      flex-wrap: nowrap;
+      gap: 16px;
+      padding: 6px;
+      flex: 0 0 auto;
+      max-width: 100%;
+    }
+    body.mode-dock .overlay-stack { display: none !important; }
+
+    .card {
+      position: relative;
+      overflow: hidden;
+      flex: 0 0 268px;
+      width: 268px;
+      max-width: calc((100vw - 16px - 16px) / 2);
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 10px 13px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background:
+        radial-gradient(ellipse 140% 85% at 50% -35%, #23232b 0%, #1a1a20 55%),
+        linear-gradient(148deg, #1e1e26 0%, #131318 100%);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.35) inset,
+        0 12px 40px rgba(0, 0, 0, 0.55),
+        0 2px 0 rgba(255, 255, 255, 0.04) inset;
+    }
+    .bar .card > * {
+      position: relative;
+      z-index: 1;
+    }
+    .card.dep {
+      border-color: rgba(186, 230, 253, 0.42);
+      background: linear-gradient(156deg, #2a4256 0%, #1f3548 48%, #1a2e42 100%);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.35) inset,
+        0 12px 40px rgba(0, 0, 0, 0.55),
+        0 0 28px rgba(186, 230, 253, 0.18),
+        0 2px 0 rgba(255, 255, 255, 0.04) inset;
+    }
+    .card.dep::before {
+      content: "";
+      position: absolute;
+      inset: -28%;
+      z-index: 0;
+      border-radius: 28%;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 125% 95% at 10% 6%, #3d5468 0%, #243848 45%, #1a2e42 54%),
+        radial-gradient(ellipse 95% 75% at 96% 94%, #2a4a5c 0%, #1a2e42 48%);
+      animation: glowFade 18s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+      animation-delay: -4s;
+    }
+    .card.out {
+      --out-stop-a: #fecaca;
+      --out-stop-b: #ef4444;
+      --out-sign-ink: #7f1d1d;
+      --out-wallet-body: #3d1a1e;
+      --out-wallet-flap: #ffe8e8;
+      border-color: rgba(248, 113, 113, 0.42);
+      background: linear-gradient(204deg, #4d2228 0%, #3a1a1f 52%, #32161b 100%);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.35) inset,
+        0 12px 40px rgba(0, 0, 0, 0.55),
+        0 0 28px rgba(248, 113, 113, 0.18),
+        0 2px 0 rgba(255, 255, 255, 0.04) inset;
+    }
+    .card.out::before {
+      content: "";
+      position: absolute;
+      inset: -28%;
+      z-index: 0;
+      border-radius: 28%;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 125% 95% at 92% 8%, #5c3036 0%, #3a1a1f 45%, #32161b 54%),
+        radial-gradient(ellipse 95% 75% at 4% 92%, #4a252c 0%, #32161b 48%);
+      animation: glowFade 23s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+      animation-delay: -11s;
+    }
+    .card.out.out-has-value {
+      --out-stop-a: #86efac;
+      --out-stop-b: #16a34a;
+      --out-sign-ink: #14532d;
+      --out-wallet-body: #1a3d2c;
+      --out-wallet-flap: #d9f6e3;
+      border-color: rgba(74, 222, 128, 0.32);
+      background: linear-gradient(168deg, #1a3024 0%, #14261c 48%, #102218 100%);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.35) inset,
+        0 12px 40px rgba(0, 0, 0, 0.55),
+        0 0 28px rgba(74, 222, 128, 0.14),
+        0 2px 0 rgba(255, 255, 255, 0.04) inset;
+    }
+    .card.out.out-has-value::before {
+      background:
+        radial-gradient(ellipse 125% 95% at 92% 8%, #2a4534 0%, #162a1e 45%, #102218 54%),
+        radial-gradient(ellipse 95% 75% at 4% 92%, #1e3d2a 0%, #102218 48%);
+    }
+
+    .icon-wrap {
+      flex-shrink: 0;
+      width: 56px;
+      height: 56px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: linear-gradient(160deg, #2e2e36 0%, #16161a 100%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow:
+        0 4px 14px rgba(0, 0, 0, 0.45) inset,
+        0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+    .card.dep .icon-wrap {
+      border-color: rgba(56, 189, 248, 0.45);
+      background: linear-gradient(160deg, #355a6e 0%, #1a2830 100%);
+      box-shadow:
+        0 4px 14px rgba(0, 0, 0, 0.45) inset,
+        0 0 20px rgba(56, 189, 248, 0.12);
+    }
+    .card.out .icon-wrap {
+      border-color: rgba(248, 113, 113, 0.52);
+      background: linear-gradient(160deg, #5c3538 0%, #241618 100%);
+      box-shadow:
+        0 4px 14px rgba(0, 0, 0, 0.45) inset,
+        0 0 20px rgba(248, 113, 113, 0.15);
+    }
+    .card.out.out-has-value .icon-wrap {
+      border-color: rgba(74, 222, 128, 0.42);
+      background: linear-gradient(160deg, #2d4a38 0%, #141c16 100%);
+      box-shadow:
+        0 4px 14px rgba(0, 0, 0, 0.45) inset,
+        0 0 20px rgba(74, 222, 128, 0.12);
+    }
+    .icon-wrap svg {
+      width: 46px;
+      height: 46px;
+      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.75));
+    }
+
+    .amt-wrap {
+      flex: 0 1 auto;
+      min-width: 0;
+      max-width: calc(100% - 72px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      text-align: center;
+    }
+    .amt {
+      display: inline-block;
+      white-space: nowrap;
+      font-size: 42px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.05;
+      color: #eceae8;
+      text-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.9),
+        0 0 14px rgba(0, 0, 0, 0.55);
+    }
+    .card.dep .amt {
+      color: #eef9ff;
+      text-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.9),
+        0 0 20px rgba(125, 211, 252, 0.35);
+    }
+    .card.out .amt {
+      color: #f0a0a0;
+      text-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.9),
+        0 0 18px rgba(239, 68, 68, 0.22);
+    }
+    .card.out.out-has-value .amt {
+      color: #4ade80;
+      text-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.9),
+        0 0 20px rgba(74, 222, 128, 0.32);
+    }
+    .amt .amt-num {
+      display: inline-block;
+    }
+    .amt .amt-suf {
+      display: inline-block;
+      font-size: 0.64em;
+      font-weight: 600;
+      opacity: 0.55;
+      vertical-align: 0.14em;
+      margin-left: 0.05em;
+      letter-spacing: 0;
+      text-shadow: none;
+    }
+    /* Плавные циклы: только opacity, два полюса + симметричный easing (без transform / filter). */
+    @keyframes glowFade {
+      0%, 100% { opacity: 0.72; }
+      50% { opacity: 1; }
+    }
+    @keyframes textSoft {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.86; }
+    }
+    @keyframes likesRowSoft {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.91; }
+    }
+    .card.dep .amt {
+      animation: textSoft 16s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+      animation-delay: -2s;
+    }
+    .card.out .amt {
+      animation: textSoft 20s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+      animation-delay: -9s;
+    }
+    .card.dep .amt .amt-suf {
+      color: rgba(224, 242, 254, 0.86);
+    }
+    .card.out .amt .amt-suf {
+      color: rgba(220, 150, 150, 0.9);
+    }
+    .card.out.out-has-value .amt .amt-suf {
+      color: rgba(134, 239, 172, 0.92);
+    }
+    .amt:empty::before {
+      content: "—";
+      opacity: 0.28;
+      font-weight: 600;
+    }
+
+    .overlay-stack {
+      display: none;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 13px;
+      max-width: 100%;
+    }
+    body.mode-overlay .overlay-stack {
+      display: inline-flex;
+    }
+
+    .likes-card {
+      position: relative;
+      overflow: hidden;
+      flex: 0 0 auto;
+      padding: 11px 14px 13px;
+      border-radius: 18px;
+      border: 1px solid rgba(212, 175, 95, 0.26);
+      background: linear-gradient(172deg, #2a2620 0%, #1f1c17 45%, #1a1713 100%);
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.35) inset,
+        0 12px 40px rgba(0, 0, 0, 0.55),
+        0 0 20px rgba(212, 165, 80, 0.08),
+        0 2px 0 rgba(255, 255, 255, 0.04) inset;
+    }
+    .likes-card > * {
+      position: relative;
+      z-index: 1;
+    }
+    .card::after,
+    .likes-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.055;
+      background-image:
+        radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.9) 0.4px, transparent 0.9px),
+        radial-gradient(circle at 78% 65%, rgba(255, 255, 255, 0.75) 0.45px, transparent 1px);
+      background-size: 3px 3px, 4px 4px;
+    }
+    .likes-card::before {
+      content: "";
+      position: absolute;
+      inset: -30%;
+      z-index: 0;
+      border-radius: 24%;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 115% 100% at 52% -8%, #3d3428 0%, #221f1a 46%),
+        radial-gradient(ellipse 85% 70% at 0% 100%, #2e261c 0%, #1a1713 44%),
+        radial-gradient(ellipse 75% 55% at 100% 55%, #282218 0%, #1a1713 42%);
+      animation: glowFade 21s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+      animation-delay: -7s;
+    }
+    .likes-row {
+      --likes-font: 40px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 8px;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .likes-inner {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      max-width: 100%;
+      min-width: 0;
+      animation: likesRowSoft 24s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+      animation-delay: -5s;
+    }
+    .likes-line {
+      flex: 0 1 auto;
+      min-width: 0;
+      margin: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      font-size: var(--likes-font);
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+      color: #ddd4c8;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.82);
+    }
+    .likes-line .likes-lbl {
+      color: #c9a86e;
+      letter-spacing: 0.12em;
+      font-size: 0.76em;
+      font-weight: 600;
+      display: inline-block;
+    }
+    .likes-line .likes-cur-part {
+      color: #fff8ee;
+      display: inline-block;
+    }
+    .likes-line .likes-goal-part {
+      color: #9a9288;
+      display: inline-block;
+    }
+    .likes-inline-thumb {
+      flex-shrink: 0;
+      width: calc(var(--likes-font) * 1.05);
+      height: calc(var(--likes-font) * 1.05);
+      display: grid;
+      place-items: center;
+      filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.55));
+    }
+    .likes-inline-thumb svg {
+      width: 92%;
+      height: 92%;
+      display: block;
+    }
+    .likes-track {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      box-shadow: 0 2px 0 rgba(255, 255, 255, 0.04) inset;
+    }
+    .likes-fill {
+      height: 100%;
+      width: 0%;
+      max-width: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #a67c2c, #d4a84b, #e8c06a);
+      box-shadow: 0 0 10px rgba(212, 160, 60, 0.4);
+      transition: width 0.35s ease;
+    }
+    .likes-err {
+      margin-top: 6px;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: #f87171;
+      line-height: 1.35;
+      text-align: center;
+    }
+
+    /* Скрытие лайков: место в вёрстке сохраняем (оверлей не «прыгает»). */
+    .likes-card.likes-visually-hidden {
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    /* ——— док ——— */
+    .dock-money-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+    }
+    .dock-money-line .dock-m-val {
+      flex: 1 1 0;
+      min-width: 0;
+    }
+    .dock-money-line .dock-m-plus {
+      flex: 0 0 56px;
+      width: 56px;
+      min-width: 56px;
+      padding-left: 6px;
+      padding-right: 6px;
+    }
+    .dock-chip {
+      flex: 0 0 34px;
+      width: 34px;
+      min-width: 34px;
+      height: auto;
+      min-height: 34px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      line-height: 1;
+      font-family: "Unbounded", system-ui, sans-serif;
+      font-weight: 600;
+      border-radius: 9px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.08);
+      color: #fafafa;
+      cursor: pointer;
+    }
+    .dock-chip.dep {
+      border-color: rgba(56, 189, 248, 0.5);
+      color: #7dd3fc;
+    }
+    .dock-chip.out {
+      border-color: rgba(248, 113, 113, 0.45);
+      color: #fca5a5;
+    }
+    .dock-chip:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .dock-yt-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.32);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .dock-yt-bar[hidden] {
+      display: none !important;
+    }
+    .dock-yt-hint {
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #71717a;
+    }
+    .dock-yt-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: #f4f4f5;
+      line-height: 1.25;
+      word-break: break-word;
+    }
+
+    .dock input.dock-micro {
+      font-size: 8px;
+      padding: 4px 6px;
+      letter-spacing: -0.01em;
+      line-height: 1.25;
+      font-weight: 600;
+    }
+
+    .dock-divider {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.06);
+      margin: 2px 0;
+    }
+
+    .dock {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 320px;
+      margin: 0 auto;
+      padding: 14px 14px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      background: linear-gradient(
+        165deg,
+        rgba(30, 30, 38, 0.97) 0%,
+        rgba(18, 18, 24, 0.98) 100%
+      );
+      box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.5) inset,
+        0 24px 48px rgba(0, 0, 0, 0.45);
+    }
+    body.mode-dock .dock { display: flex; }
+
+    .dock-head {
+      padding-bottom: 6px;
+      margin-bottom: 2px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .dock-head h1 {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: #fafafa;
+    }
+    .dock-head p {
+      display: none;
+    }
+
+    .dock .field {
+      margin-bottom: 0;
+    }
+    .dock .field label {
+      display: block;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .dock .field label.dep { color: #7dd3fc; }
+    .dock .field label.out { color: #fca5a5; }
+    .dock .field label.likes { color: #fcd34d; }
+    .dock .field label.neutral { color: #a1a1aa; }
+
+    .dock-likes-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .dock-likes-head label {
+      margin-bottom: 0;
+    }
+    .dock-hide-likes-btn {
+      flex-shrink: 0;
+      font-family: "Unbounded", system-ui, sans-serif;
+      font-size: 8px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(252, 211, 77, 0.38);
+      background: rgba(252, 211, 77, 0.1);
+      color: #fde68a;
+      cursor: pointer;
+    }
+    .dock-hide-likes-btn:hover {
+      background: rgba(252, 211, 77, 0.18);
+    }
+
+    .dock input[type="text"] {
+      width: 100%;
+      padding: 9px 11px;
+      font-family: "Unbounded", system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.02em;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.35);
+      color: #fafafa;
+      outline: none;
+      box-shadow: 0 2px 0 rgba(255, 255, 255, 0.03) inset;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .dock .field.dep-in input:focus {
+      border-color: rgba(56, 189, 248, 0.5);
+      box-shadow:
+        0 2px 0 rgba(255, 255, 255, 0.03) inset,
+        0 0 0 3px rgba(56, 189, 248, 0.14);
+    }
+    .dock .field.out-in input:focus {
+      border-color: rgba(248, 113, 113, 0.45);
+      box-shadow:
+        0 2px 0 rgba(255, 255, 255, 0.03) inset,
+        0 0 0 3px rgba(248, 113, 113, 0.12);
+    }
+    .dock .field.likes-yt input:focus,
+    .dock .field.likes-goal input:focus {
+      border-color: rgba(251, 191, 36, 0.5);
+      box-shadow:
+        0 2px 0 rgba(255, 255, 255, 0.03) inset,
+        0 0 0 3px rgba(251, 191, 36, 0.14);
+    }
+    .dock .field.bridge-in input:focus {
+      border-color: rgba(161, 161, 170, 0.55);
+      box-shadow:
+        0 2px 0 rgba(255, 255, 255, 0.03) inset,
+        0 0 0 3px rgba(113, 113, 122, 0.2);
+    }
+    .dock .field.likes-yt input.dock-micro:focus {
+      border-color: rgba(251, 191, 36, 0.5);
+      box-shadow:
+        0 2px 0 rgba(255, 255, 255, 0.03) inset,
+        0 0 0 2px rgba(251, 191, 36, 0.12);
+    }
+    .dock .field.bridge-in input.dock-micro:focus {
+      border-color: rgba(161, 161, 170, 0.55);
+      box-shadow:
+        0 2px 0 rgba(255, 255, 255, 0.03) inset,
+        0 0 0 2px rgba(113, 113, 122, 0.15);
+    }
+    .dock input::placeholder {
+      color: #52525b;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay-stack">
+  <div class="bar">
+    <div class="card dep">
+      <div class="icon-wrap" aria-hidden="true">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="gDep" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#e0f2fe"/>
+              <stop offset="0.5" stop-color="#38bdf8"/>
+              <stop offset="1" stop-color="#0284c7"/>
+            </linearGradient>
+            <linearGradient id="gDepCoin" x1="8" y1="8" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#f8fdff"/>
+              <stop offset="1" stop-color="#7dd3fc"/>
+            </linearGradient>
+          </defs>
+          <!-- ДЕПОЗИТ: монета + стрелка внутрь кошелька -->
+          <rect x="10" y="26" width="44" height="24" rx="7" fill="#1a3d52" stroke="url(#gDep)" stroke-width="2.6"/>
+          <path d="M45 34h9v8h-9c-2.3 0-4-1.7-4-4s1.7-4 4-4z" fill="#cfefff" stroke="url(#gDep)" stroke-width="2"/>
+          <circle cx="32" cy="15" r="11" fill="url(#gDepCoin)" stroke="#e0f2fe" stroke-width="1.7"/>
+          <path d="M24 15h16" stroke="#075985" stroke-width="4.2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="amt-wrap">
+        <span id="depDisp" class="amt" aria-live="polite"></span>
+      </div>
+    </div>
+    <div class="card out" id="outCard">
+      <div class="icon-wrap" aria-hidden="true">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="gOut" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="var(--out-stop-a)"/>
+              <stop offset="1" stop-color="var(--out-stop-b)"/>
+            </linearGradient>
+            <linearGradient id="gOutCoin" x1="42" y1="42" x2="59" y2="59" gradientUnits="userSpaceOnUse">
+              <stop offset="0" stop-color="#fff7f7"/>
+              <stop offset="1" stop-color="var(--out-stop-a)"/>
+            </linearGradient>
+          </defs>
+          <!-- ВЫВОД: стрелка из кошелька + монета с минусом -->
+          <rect x="10" y="26" width="44" height="24" rx="7" fill="var(--out-wallet-body)" stroke="url(#gOut)" stroke-width="2.6"/>
+          <path d="M45 34h9v8h-9c-2.3 0-4-1.7-4-4s1.7-4 4-4z" fill="var(--out-wallet-flap)" stroke="url(#gOut)" stroke-width="2"/>
+          <circle cx="32" cy="15" r="11" fill="url(#gOutCoin)" stroke="url(#gOut)" stroke-width="1.7"/>
+          <path d="M24 15h16M32 7v16" stroke="var(--out-sign-ink)" stroke-width="4.2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="amt-wrap">
+        <span id="outDisp" class="amt" aria-live="polite"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="likes-card">
+    <div class="likes-row" id="likesNums">
+      <div class="likes-inner">
+      <p id="likesLine" class="likes-line" aria-live="polite"></p>
+      <div class="likes-inline-thumb" aria-hidden="true">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="gYtThumb" x1="4" y1="3" x2="20" y2="21" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#f8fafc"/>
+              <stop offset="0.45" stop-color="#cbd5e1"/>
+              <stop offset="1" stop-color="#94a3b8"/>
+            </linearGradient>
+            <linearGradient id="gYtCuff" x1="1" y1="9" x2="5" y2="21" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#64748b"/>
+              <stop offset="1" stop-color="#475569"/>
+            </linearGradient>
+          </defs>
+          <path fill="url(#gYtCuff)" d="M1 21h4V9H1v12z"/>
+          <path fill="url(#gYtThumb)" d="M23 10c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/>
+        </svg>
+      </div>
+      </div>
+    </div>
+    <div class="likes-track">
+      <div id="likesFill" class="likes-fill"></div>
+    </div>
+    <div id="likesErr" class="likes-err" hidden></div>
+  </div>
+  </div>
+
+  <div class="dock">
+    <div class="dock-head">
+      <h1>Кошелёк</h1>
+      <p>оверлей</p>
+    </div>
+    <div id="ytChannelBar" class="dock-yt-bar" hidden>
+      <div class="dock-yt-txt">
+        <div class="dock-yt-hint">Канал</div>
+        <div id="ytChName" class="dock-yt-name">—</div>
+      </div>
+    </div>
+    <div class="field dep-in">
+      <label class="dep" for="depIn">Депозит</label>
+      <div class="dock-money-line">
+        <input id="depIn" class="dock-m-val" type="text" inputmode="decimal" placeholder="100" spellcheck="false" autocomplete="off" />
+        <input id="depPlus" class="dock-m-plus" type="text" inputmode="decimal" placeholder="50" spellcheck="false" autocomplete="off" />
+        <button type="button" class="dock-chip dep" id="depPlusBtn">+</button>
+      </div>
+    </div>
+    <div class="field out-in">
+      <label class="out" for="outIn">Вывод</label>
+      <div class="dock-money-line">
+        <input id="outIn" class="dock-m-val" type="text" inputmode="decimal" placeholder="7777" spellcheck="false" autocomplete="off" />
+        <input id="outPlus" class="dock-m-plus" type="text" inputmode="decimal" placeholder="50" spellcheck="false" autocomplete="off" />
+        <button type="button" class="dock-chip out" id="outPlusBtn">+</button>
+      </div>
+    </div>
+    <div class="field likes-goal">
+      <div class="dock-likes-head">
+        <label class="likes" for="likeGoal">Цель лайков</label>
+        <button type="button" class="dock-hide-likes-btn" id="hideLikesBtn">Скрыть</button>
+      </div>
+      <input id="likeGoal" type="text" inputmode="numeric" spellcheck="false" autocomplete="off" placeholder="200" />
+    </div>
+    <div class="dock-divider"></div>
+    <div class="field likes-yt">
+      <label class="likes" for="ytUrl">YouTube</label>
+      <input id="ytUrl" class="dock-micro" type="text" spellcheck="false" autocomplete="off" placeholder="https://youtube.com/@… или watch?v=…" />
+    </div>
+    <div class="field bridge-in">
+      <label class="neutral" for="bridgeUrl">Бридж</label>
+      <input id="bridgeUrl" class="dock-micro" type="text" spellcheck="false" autocomplete="off" placeholder="http://127.0.0.1:8766" />
+    </div>
+  </div>
+
+  <script>
+    const K = {
+      dep: "obs_wallet_dep",
+      out: "obs_wallet_out",
+      yt: "obs_wallet_yt_url",
+      goal: "obs_wallet_like_goal",
+      bridge: "obs_wallet_bridge_url",
+      hideLikes: "obs_wallet_hide_likes",
+    };
+    const K_META = "obs_wallet_yt_meta_v1";
+    const DEFAULT_BRIDGE = "http://127.0.0.1:8766";
+
+    function bridgeBase(bridge) {
+      let b = (bridge || DEFAULT_BRIDGE).trim().replace(/\/$/, "");
+      if (!/^https?:\/\//i.test(b)) b = "http://" + b.replace(/^\/+/, "");
+      return b;
+    }
+    const q = new URLSearchParams(location.search);
+    const dockMode = q.has("dock") || location.hash === "#dock";
+    document.body.classList.add(dockMode ? "mode-dock" : "mode-overlay");
+
+    const depDisp = document.getElementById("depDisp");
+    const outDisp = document.getElementById("outDisp");
+    const depIn = document.getElementById("depIn");
+    const outIn = document.getElementById("outIn");
+    const ytUrl = document.getElementById("ytUrl");
+    const likeGoal = document.getElementById("likeGoal");
+    const bridgeUrl = document.getElementById("bridgeUrl");
+    const depPlus = document.getElementById("depPlus");
+    const outPlus = document.getElementById("outPlus");
+    const depPlusBtn = document.getElementById("depPlusBtn");
+    const outPlusBtn = document.getElementById("outPlusBtn");
+    const likesLine = document.getElementById("likesLine");
+    const likesFill = document.getElementById("likesFill");
+    const likesErr = document.getElementById("likesErr");
+    const likesNums = document.getElementById("likesNums");
+    const likesDisp = { cur: "—", goal: "0" };
+    const cards = () => document.querySelectorAll(".bar .card");
+    const ytChannelBar = document.getElementById("ytChannelBar");
+    const ytChName = document.getElementById("ytChName");
+    const outCard = document.getElementById("outCard");
+    const hideLikesBtn = document.getElementById("hideLikesBtn");
+    let channelMetaTimer = null;
+
+    function readStore() {
+      try {
+        return {
+          dep: localStorage.getItem(K.dep) || "",
+          out: localStorage.getItem(K.out) || "",
+        };
+      } catch (_) {
+        return { dep: "", out: "" };
+      }
+    }
+
+    function readYtSettings() {
+      try {
+        const b = localStorage.getItem(K.bridge);
+        return {
+          yt: localStorage.getItem(K.yt) || "",
+          goal: localStorage.getItem(K.goal) || "",
+          bridge: b && b.trim() ? b : DEFAULT_BRIDGE,
+        };
+      } catch (_) {
+        return { yt: "", goal: "", bridge: DEFAULT_BRIDGE };
+      }
+    }
+
+    function writeStore(key, val) {
+      try { localStorage.setItem(K[key], val); } catch (_) {}
+    }
+
+    function loadMetaCache() {
+      try {
+        const j = JSON.parse(localStorage.getItem(K_META) || "null");
+        return j && typeof j === "object" ? j : null;
+      } catch (_) {
+        return null;
+      }
+    }
+    function saveMetaCache(obj) {
+      try {
+        localStorage.setItem(K_META, JSON.stringify(obj));
+      } catch (_) {}
+    }
+    function applyMetaBar(url, data) {
+      if (!ytChannelBar || !ytChName) return;
+      const u = (url || "").trim();
+      if (!u || !data || !data.ok) {
+        ytChannelBar.hidden = true;
+        return;
+      }
+      ytChName.textContent = data.author_name || data.title || "YouTube";
+      ytChannelBar.hidden = false;
+    }
+    function scheduleChannelMeta() {
+      clearTimeout(channelMetaTimer);
+      channelMetaTimer = setTimeout(refreshChannelMeta, 600);
+    }
+    async function refreshChannelMeta() {
+      if (!dockMode || !ytChannelBar) return;
+      const y = readYtSettings();
+      const u = y.yt.trim();
+      if (!u) {
+        ytChannelBar.hidden = true;
+        return;
+      }
+      const cached = loadMetaCache();
+      if (cached && cached.forUrl === u && cached.data) {
+        applyMetaBar(u, cached.data);
+      }
+      const base = bridgeBase(y.bridge);
+      try {
+        const r = await fetch(
+          `${base}/channel_meta?channel=${encodeURIComponent(u)}`,
+          { cache: "no-store" }
+        );
+        const j = await r.json();
+        saveMetaCache({ forUrl: u, data: j });
+        applyMetaBar(u, j);
+      } catch (_) {
+        if (!cached || cached.forUrl !== u) {
+          ytChannelBar.hidden = true;
+        }
+      }
+    }
+
+    function parseGoal(str) {
+      const t = String(str).trim().replace(/\s/g, "").replace(",", ".");
+      if (t === "") return 0;
+      const n = parseInt(t, 10);
+      return Number.isFinite(n) && n >= 0 ? n : 0;
+    }
+
+    function formatIntRu(n) {
+      if (n == null || !Number.isFinite(n)) return "—";
+      return new Intl.NumberFormat("ru-RU").format(Math.floor(n));
+    }
+
+    function parseRaw(str) {
+      const t = String(str).trim().replace(/\s/g, "").replace(",", ".");
+      if (t === "" || t === "." || t === "-") return null;
+      const n = Number(t);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function trimThousands(x) {
+      const r = Math.round(x * 1e6) / 1e6;
+      if (Number.isInteger(r) || Math.abs(r - Math.round(r)) < 1e-6) return String(Math.round(r));
+      let s = r.toFixed(2).replace(/\.?0+$/, "");
+      return s;
+    }
+
+    function trimMillions(m) {
+      const t = Math.trunc(m * 100) / 100;
+      let s = t.toFixed(2);
+      if (s.endsWith(".00")) s = s.slice(0, -3);
+      else if (s.endsWith("0")) s = s.slice(0, -1);
+      return s;
+    }
+
+    /** Сырое число = тысячи рублей: 777 → 777K, 7777 → 7.77KK */
+    function formatDisplay(rawStr) {
+      const n = parseRaw(rawStr);
+      if (n === null) return "";
+      const rub = n * 1000;
+      if (rub < 1e6) return trimThousands(rub / 1000) + "K";
+      return trimMillions(rub / 1e6) + "KK";
+    }
+
+    function formatDisplayHtml(rawStr) {
+      const esc = (s) =>
+        String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      const n = parseRaw(rawStr);
+      if (n === null) return "";
+      const rub = n * 1000;
+      let numStr;
+      let suf;
+      if (rub < 1e6) {
+        numStr = esc(trimThousands(rub / 1000));
+        suf = "k";
+      } else {
+        numStr = esc(trimMillions(rub / 1e6));
+        suf = "kk";
+      }
+      return (
+        '<span class="amt-num">' + numStr + '</span><span class="amt-suf">' + suf + "</span>"
+      );
+    }
+
+    function formatStoredNum(n) {
+      if (!Number.isFinite(n)) return "0";
+      return trimThousands(n);
+    }
+
+    /** Дробная часть в анимации только если в сохранённой строке есть значащие десятые (например 7.77kk). */
+    function storedUsesFractionalThousands(rawStr) {
+      const t = String(rawStr).trim().replace(/\s/g, "").replace(",", ".");
+      if (!t || t === "." || t === "-") return false;
+      if (!t.includes(".")) return false;
+      const n = Number(t);
+      return Number.isFinite(n) && Math.abs(n - Math.round(n)) > 1e-6;
+    }
+
+    const amtAnim = {
+      dep: {
+        rafId: null,
+        from: 0,
+        to: 0,
+        t0: 0,
+        dur: 500,
+        targetStr: "",
+        seen: false,
+        displayN: null,
+        fractionalTarget: false,
+      },
+      out: {
+        rafId: null,
+        from: 0,
+        to: 0,
+        t0: 0,
+        dur: 500,
+        targetStr: "",
+        seen: false,
+        displayN: null,
+        fractionalTarget: false,
+      },
+    };
+    const AMT_BASE_MS = 380;
+    const AMT_PER_UNIT_MS = 14;
+    const AMT_MAX_MS = 1200;
+
+    function amtEase(t) {
+      return 1 - Math.pow(1 - t, 3);
+    }
+
+    function amtNowN(s, ts) {
+      if (s.rafId == null) return s.displayN;
+      const u = Math.min(1, (ts - s.t0) / s.dur);
+      return s.from + (s.to - s.from) * amtEase(u);
+    }
+
+    function cancelAmtAnim(which) {
+      const s = amtAnim[which];
+      if (s.rafId != null) {
+        cancelAnimationFrame(s.rafId);
+        s.rafId = null;
+      }
+    }
+
+    function stepAmtAnim(which, el, ts) {
+      const s = amtAnim[which];
+      const u = Math.min(1, (ts - s.t0) / s.dur);
+      const n = s.from + (s.to - s.from) * amtEase(u);
+      s.displayN = n;
+      const nShow = s.fractionalTarget ? n : Math.round(n);
+      el.innerHTML = formatDisplayHtml(formatStoredNum(nShow));
+      fitOverlayAmts();
+      if (u < 1) {
+        s.rafId = requestAnimationFrame((t2) => stepAmtAnim(which, el, t2));
+      } else {
+        s.rafId = null;
+        s.displayN = s.to;
+        const raw = readStore()[which];
+        el.innerHTML = formatDisplayHtml(raw);
+        s.targetStr = raw;
+        fitOverlayAmts();
+      }
+    }
+
+    function applyAmtWithAnim(which, el) {
+      const rawStr = readStore()[which];
+      const s = amtAnim[which];
+      const nTo = parseRaw(rawStr);
+
+      if (nTo === null) {
+        cancelAmtAnim(which);
+        el.innerHTML = "";
+        s.displayN = null;
+        s.targetStr = rawStr;
+        s.seen = true;
+        fitOverlayAmts();
+        return;
+      }
+
+      if (!s.seen) {
+        el.innerHTML = formatDisplayHtml(rawStr);
+        s.displayN = nTo;
+        s.targetStr = rawStr;
+        s.seen = true;
+        fitOverlayAmts();
+        return;
+      }
+
+      if (rawStr === s.targetStr && s.rafId != null) return;
+
+      if (
+        rawStr === s.targetStr &&
+        s.rafId == null &&
+        s.displayN !== null &&
+        Math.abs(s.displayN - nTo) < 1e-6
+      ) {
+        return;
+      }
+
+      const ts = performance.now();
+      const nFrom =
+        s.rafId != null ? amtNowN(s, ts) : s.displayN !== null ? s.displayN : nTo;
+
+      if (Math.abs(nFrom - nTo) < 1e-9) {
+        cancelAmtAnim(which);
+        el.innerHTML = formatDisplayHtml(rawStr);
+        s.displayN = nTo;
+        s.targetStr = rawStr;
+        fitOverlayAmts();
+        return;
+      }
+
+      cancelAmtAnim(which);
+      s.from = nFrom;
+      s.to = nTo;
+      s.t0 = ts;
+      s.fractionalTarget = storedUsesFractionalThousands(rawStr);
+      s.dur = Math.min(
+        AMT_MAX_MS,
+        AMT_BASE_MS + AMT_PER_UNIT_MS * Math.sqrt(Math.abs(nTo - nFrom))
+      );
+      s.targetStr = rawStr;
+      s.rafId = requestAnimationFrame((t2) => stepAmtAnim(which, el, t2));
+    }
+
+    function applyPlus(which) {
+      const inp = which === "dep" ? depIn : outIn;
+      const plus = which === "dep" ? depPlus : outPlus;
+      const d = parseRaw(plus.value);
+      if (d === null) return;
+      const base = parseRaw(inp.value);
+      const sum = (base || 0) + d;
+      const s = formatStoredNum(sum);
+      writeStore(which, s);
+      inp.value = s;
+      plus.value = "";
+    }
+
+    function fitCard(card) {
+      const wrap = card.querySelector(".amt-wrap");
+      const amt = card.querySelector(".amt");
+      if (!wrap || !amt) return;
+      const maxW = wrap.clientWidth;
+      if (maxW < 6) return;
+      const MIN = 10;
+      const MAX = 42;
+      amt.style.fontSize = MAX + "px";
+      if (amt.scrollWidth <= maxW) return;
+      let lo = MIN;
+      let hi = MAX;
+      let best = MIN;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        amt.style.fontSize = mid + "px";
+        if (amt.scrollWidth <= maxW) {
+          best = mid;
+          lo = mid + 1;
+        } else hi = mid - 1;
+      }
+      amt.style.fontSize = best + "px";
+    }
+
+    function fitOverlayAmts() {
+      requestAnimationFrame(() => {
+        cards().forEach(fitCard);
+      });
+    }
+
+    function syncOutCardFromRaw(rawStr) {
+      if (!outCard) return;
+      const n = parseRaw(rawStr);
+      outCard.classList.toggle("out-has-value", n !== null && n > 0);
+    }
+
+    function likesGoalHidden() {
+      try {
+        return localStorage.getItem(K.hideLikes) === "1";
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function applyLikesCardVisibility() {
+      const el = document.querySelector(".likes-card");
+      if (!el) return;
+      el.classList.toggle("likes-visually-hidden", likesGoalHidden());
+    }
+
+    function syncHideLikesBtnLabel() {
+      if (!hideLikesBtn) return;
+      hideLikesBtn.textContent = likesGoalHidden() ? "Показать" : "Скрыть";
+    }
+
+    function paintOverlay() {
+      const { dep, out } = readStore();
+      applyAmtWithAnim("dep", depDisp);
+      applyAmtWithAnim("out", outDisp);
+      syncOutCardFromRaw(out);
+      applyLikesCardVisibility();
+      paintLikesGoalOnly();
+      fitOverlayAmts();
+    }
+
+    function paintLikesLineHtml() {
+      if (!likesLine) return;
+      likesLine.innerHTML =
+        '<span class="likes-lbl">ЦЕЛЬ:</span> ' +
+        '<span class="likes-cur-part">' +
+        escapeHtml(likesDisp.cur) +
+        "</span>/<span class=\"likes-goal-part\">" +
+        escapeHtml(likesDisp.goal) +
+        "</span>";
+      fitLikesRow();
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function paintLikesGoalOnly() {
+      const g = parseGoal(readYtSettings().goal);
+      likesDisp.goal = formatIntRu(g);
+      paintLikesLineHtml();
+    }
+
+    function fitLikesRow() {
+      if (!likesNums || !likesLine) return;
+      const inner = likesNums.querySelector(".likes-inner");
+      const MIN = 10;
+      const MAX = 42;
+      function applyLikesFont(px) {
+        likesLine.style.fontSize = px + "px";
+        likesNums.style.setProperty("--likes-font", px + "px");
+        void likesNums.offsetWidth;
+      }
+      applyLikesFont(MAX);
+      const rowW = likesNums.clientWidth;
+      if (rowW < 24) return;
+      if (inner && inner.scrollWidth <= rowW) return;
+      let lo = MIN;
+      let hi = MAX;
+      let best = MIN;
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        applyLikesFont(mid);
+        if (!inner) break;
+        if (inner.scrollWidth <= rowW) {
+          best = mid;
+          lo = mid + 1;
+        } else hi = mid - 1;
+      }
+      applyLikesFont(best);
+    }
+
+    let likesPollTimer = null;
+    async function fetchLikesOnce() {
+      const { yt, goal, bridge } = readYtSettings();
+      const g = parseGoal(goal);
+      likesDisp.goal = formatIntRu(g);
+      if (!yt.trim()) {
+        likesDisp.cur = "—";
+        likesFill.style.width = "0%";
+        likesErr.hidden = true;
+        paintLikesLineHtml();
+        return;
+      }
+      const base = bridgeBase(bridge);
+      const u = `${base}/status?channel=${encodeURIComponent(yt.trim())}&goal=${encodeURIComponent(g)}`;
+      try {
+        const r = await fetch(u, { cache: "no-store" });
+        const j = await r.json();
+        if (typeof j.likes === "number" && Number.isFinite(j.likes)) {
+          likesDisp.cur = formatIntRu(j.likes);
+          const pct = g > 0 ? Math.min(100, (j.likes / g) * 100) : 0;
+          likesFill.style.width = pct + "%";
+          likesErr.hidden = true;
+        } else {
+          likesDisp.cur = "—";
+          likesFill.style.width = "0%";
+          likesErr.textContent = j.error || "Нет данных о лайках";
+          likesErr.hidden = false;
+        }
+      } catch (e) {
+        likesDisp.cur = "—";
+        likesFill.style.width = "0%";
+        likesErr.textContent = "Бридж не отвечает (запущен python likes_bridge.py?)";
+        likesErr.hidden = false;
+      }
+      paintLikesLineHtml();
+    }
+
+    function paintDock() {
+      const { dep, out } = readStore();
+      depIn.value = dep;
+      outIn.value = out;
+      const y = readYtSettings();
+      ytUrl.value = y.yt;
+      likeGoal.value = y.goal;
+      bridgeUrl.value = y.bridge || DEFAULT_BRIDGE;
+    }
+
+    if (dockMode) {
+      paintDock();
+      refreshChannelMeta();
+      depIn.addEventListener("input", () => writeStore("dep", depIn.value));
+      outIn.addEventListener("input", () => writeStore("out", outIn.value));
+      ytUrl.addEventListener("input", () => {
+        writeStore("yt", ytUrl.value);
+        scheduleChannelMeta();
+      });
+      likeGoal.addEventListener("input", () => writeStore("goal", likeGoal.value));
+      bridgeUrl.addEventListener("input", () => {
+        writeStore("bridge", bridgeUrl.value);
+        scheduleChannelMeta();
+      });
+      depPlusBtn.addEventListener("click", () => applyPlus("dep"));
+      outPlusBtn.addEventListener("click", () => applyPlus("out"));
+      depPlus.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          applyPlus("dep");
+        }
+      });
+      outPlus.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          applyPlus("out");
+        }
+      });
+      window.addEventListener("storage", (e) => {
+        if (e.key === K.dep) depIn.value = e.newValue || "";
+        if (e.key === K.out) outIn.value = e.newValue || "";
+        if (e.key === K.yt) {
+          ytUrl.value = e.newValue || "";
+          scheduleChannelMeta();
+        }
+        if (e.key === K.goal) likeGoal.value = e.newValue || "";
+        if (e.key === K.hideLikes) syncHideLikesBtnLabel();
+        if (e.key === K.bridge) {
+          bridgeUrl.value = e.newValue || DEFAULT_BRIDGE;
+          scheduleChannelMeta();
+        }
+      });
+      syncHideLikesBtnLabel();
+      if (hideLikesBtn) {
+        hideLikesBtn.addEventListener("click", () => {
+          try {
+            if (likesGoalHidden()) localStorage.removeItem(K.hideLikes);
+            else localStorage.setItem(K.hideLikes, "1");
+          } catch (_) {}
+          syncHideLikesBtnLabel();
+        });
+      }
+      setInterval(() => {
+        paintDock();
+        syncHideLikesBtnLabel();
+      }, 1000);
+    } else {
+      paintOverlay();
+      fetchLikesOnce();
+      likesPollTimer = setInterval(fetchLikesOnce, 15000);
+      window.addEventListener("storage", (e) => {
+        if (e.key === K.dep) applyAmtWithAnim("dep", depDisp);
+        if (e.key === K.out) {
+          applyAmtWithAnim("out", outDisp);
+          syncOutCardFromRaw(e.newValue || "");
+        }
+        if (e.key === K.hideLikes) applyLikesCardVisibility();
+        if (e.key === K.yt || e.key === K.goal || e.key === K.bridge) {
+          paintLikesGoalOnly();
+          fetchLikesOnce();
+        }
+        fitOverlayAmts();
+      });
+      setInterval(paintOverlay, 800);
+      window.addEventListener("resize", () => {
+        fitOverlayAmts();
+        fitLikesRow();
+      });
+      if (typeof ResizeObserver !== "undefined") {
+        const ro = new ResizeObserver(() => fitOverlayAmts());
+        cards().forEach((c) => ro.observe(c));
+        const ro2 = new ResizeObserver(() => fitLikesRow());
+        ro2.observe(likesNums);
+      }
+    }
+  </script>
+</body>
+</html>

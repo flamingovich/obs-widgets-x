@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Giveaway Widget</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        @font-face {
+            font-family: 'CustomFont';
+            src: url('fonts/font.ttf') format('truetype');
+            font-display: swap;
+        }
+
+        @font-face {
+            font-family: 'UnboundedSemiBold';
+            src: url('fonts/Unbounded-SemiBold.ttf') format('truetype');
+            font-display: swap;
+        }
+        
+        * { margin: 0; padding: 0; }
+        
+        body {
+            background: transparent;
+            font-family: 'Unbounded', 'CustomFont', sans-serif;
+            overflow: hidden;
+            width: 1080px;
+            height: 600px;
+        }
+
+        .widget-stage {
+            width: 1080px;
+            height: 600px;
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+            padding: 28px 12px;
+            box-sizing: border-box;
+        }
+
+        .widget-stage.align-center { justify-content: center; }
+        .widget-stage.align-right { justify-content: flex-end; }
+        
+        .widget {
+            position: relative;
+            top: auto;
+            left: auto;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            padding: 10px 25px;
+            color: white;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            background-size: cover;
+            background-position: center;
+        }
+        
+        .widget.visible { opacity: 1; }
+        
+        .content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            position: relative;
+            transition: opacity 0.52s cubic-bezier(0.22, 0.61, 0.36, 1);
+        }
+        
+        .element { display: inline; }
+        .element.hidden { display: none !important; }
+        
+        .keyword {
+            padding: 3px 12px;
+            border-radius: 15px;
+            font-weight: bold;
+        }
+        
+        .winner-avatar {
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .winner-info-wrapper {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 12px;
+            border-radius: 20px;
+        }
+        
+        .countdown-roulette {
+            position: relative;
+            width: min(76vw, 420px);
+            height: 36px;
+            overflow: hidden;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.18);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        .countdown-track {
+            transform: translateY(0);
+            will-change: transform;
+        }
+
+        .countdown-item {
+            height: 36px;
+            display: flex;
+            align-items: center;
+            font-weight: 700;
+            padding: 0 28px;
+            white-space: nowrap;
+            overflow: hidden;
+            opacity: 0.9;
+        }
+
+        .countdown-name {
+            width: 100%;
+            text-align: center;
+            font-size: 24px;
+            line-height: 1;
+            font-weight: 800;
+            letter-spacing: 0.01em;
+        }
+
+        .roulette-marker {
+            position: absolute;
+            top: 50%;
+            width: 16px;
+            height: 12px;
+            clip-path: polygon(0% 0%, 100% 50%, 0% 100%);
+            background: linear-gradient(135deg, #ffbe3b 0%, #ff8a39 45%, #ff5b95 100%);
+            border: 1px solid rgba(255, 180, 60, 0.95);
+            box-shadow: 0 0 5px rgba(255, 130, 40, 0.4);
+            z-index: 5;
+            transform: translateY(-50%);
+        }
+
+        .roulette-marker.left {
+            left: 6px;
+            transform: translateY(-50%);
+        }
+
+        .roulette-marker.right {
+            right: 6px;
+            transform: translateY(-50%) scaleX(-1);
+        }
+
+        .countdown-fade {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 8px;
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        .countdown-fade.top {
+            top: 0;
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.35), transparent);
+        }
+
+        .countdown-fade.bottom {
+            bottom: 0;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.35), transparent);
+        }
+        
+        .timer {
+            opacity: 0.9;
+        }
+
+        .count-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            min-width: 64px;
+            justify-content: flex-end;
+        }
+
+        /* Справа от числа — не перекрывает ключ и подпись слева */
+        .join-fx-layer {
+            position: absolute;
+            left: 100%;
+            top: -4px;
+            margin-left: 10px;
+            pointer-events: none;
+            min-width: 1px;
+            min-height: 1px;
+        }
+
+        .join-fx-item {
+            position: absolute;
+            left: 0;
+            top: 0;
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: 700;
+            font-family: 'Unbounded', 'UnboundedSemiBold', 'CustomFont', sans-serif;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+            white-space: nowrap;
+            max-width: none;
+            overflow: visible;
+            text-overflow: clip;
+            transform: translateY(4px) scale(0.96);
+            opacity: 0;
+            animation: joinPop 1.75s ease-out forwards;
+            will-change: transform, opacity;
+        }
+
+        .join-fx-item.join-fx-batch {
+            font-size: 17px;
+            letter-spacing: 0.02em;
+        }
+
+        @keyframes joinPop {
+            0% { transform: translateY(4px) scale(0.96); opacity: 0; }
+            14% { transform: translateY(0) scale(1); opacity: 1; }
+            72% { transform: translateY(-8px) scale(1); opacity: 1; }
+            100% { transform: translateY(-16px) scale(0.99); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="widget-stage align-left" id="widgetStage">
+    <div class="widget" id="widget">
+        <!-- Countdown -->
+        <div class="content" id="countdownState" style="display: none;">
+            <div class="countdown-roulette" id="countdownRoulette">
+                <span class="roulette-marker left" aria-hidden="true"></span>
+                <div class="countdown-track" id="countdownTrack"></div>
+                <span class="roulette-marker right" aria-hidden="true"></span>
+                <span class="countdown-fade top" aria-hidden="true"></span>
+                <span class="countdown-fade bottom" aria-hidden="true"></span>
+            </div>
+        </div>
+        
+        <!-- Active -->
+        <div class="content" id="activeState">
+            <span class="element" id="labelText"></span>
+            <span class="element keyword" id="keyword"></span>
+            <span class="element" id="separatorText"></span>
+            <span class="count-wrap">
+                <span class="element" id="countText"></span>
+                <span class="join-fx-layer" id="joinFxLayer"></span>
+            </span>
+        </div>
+        
+        <!-- Winner -->
+        <div class="content" id="winnerState" style="display: none;">
+            <span class="element" id="winnerLabelStart"></span>
+            <span class="winner-info-wrapper" id="winnerInfoWrapper">
+                <img class="element winner-avatar" id="winnerAvatar" src="" alt="">
+                <span class="element" id="winnerName"></span>
+            </span>
+            <span class="element" id="winnerLabelEnd"></span>
+            <span class="element timer" id="timerText"></span>
+        </div>
+    </div>
+    </div>
+
+    <script>
+        let settings = {};
+        let currentState = 'hidden';
+        let lastWinner = null;
+        let lastCountdown = 0;
+        let lastParticipantsSet = new Set();
+        let rouletteParticipantsSig = '';
+        let rouletteRafId = 0;
+        let rouletteLastTs = 0;
+        let rouletteOffsetPx = 0;
+        let rouletteSpeed = 0;
+        let rouletteTargetSpeed = 0;
+        let winnerRollState = 'idle'; // idle | rolling | done
+        let winnerRollName = '';
+        let winnerHoldUntil = 0;
+        let winnerFadeStarted = false;
+        let countdownPreviewSig = '';
+        const ROULETTE_ITEM_HEIGHT = 36;
+        let joinFxQueue = [];
+        let joinFxActive = 0;
+        /** Одновременно мало «плашек», иначе каша при всплесках. */
+        const JOIN_FX_MAX_ACTIVE = 2;
+        const JOIN_FX_MAX_QUEUE = 24;
+        /** Сколько и больше новых за один опрос — одна строка «+N участников». */
+        const JOIN_FX_BATCH_THRESHOLD = 3;
+        const JOIN_FX_BASE_FONT = 18;
+        const JOIN_FX_MIN_FONT = 12;
+        const JOIN_FX_MAX_TEXT_WIDTH = 420;
+        const JOIN_FX_ROW_GAP = 26;
+        const CLICK_SOUND_URL = 'sounds/schelk.mp3';
+        const WIN_SOUND_URL = 'sounds/win.mp3';
+        const CLICK_VOLUME = 0.399; // еще тише на 30% от 0.57
+        const WIN_VOLUME = 0.294; // еще тише на 30% от 0.42
+        const CLICK_POOL_SIZE = 8;
+        const clickAudioPool = [];
+        let clickAudioPoolIdx = 0;
+        let winAudio = null;
+        let rollTickRafId = 0;
+        let rollTickActive = false;
+        let rollTickLastStep = 0;
+        let rollTickLastPlayAt = 0;
+        const CLICK_MIN_INTERVAL_MS = 85;
+        let winnerSoundPlayedFor = '';
+
+        function ensureAudioPool() {
+            if (clickAudioPool.length === 0) {
+                for (let i = 0; i < CLICK_POOL_SIZE; i += 1) {
+                    const a = new Audio(CLICK_SOUND_URL);
+                    a.preload = 'auto';
+                    a.volume = CLICK_VOLUME;
+                    clickAudioPool.push(a);
+                }
+            }
+            if (!winAudio) {
+                winAudio = new Audio(WIN_SOUND_URL);
+                winAudio.preload = 'auto';
+                winAudio.volume = WIN_VOLUME;
+            }
+        }
+
+        function safePlay(audio, restart = true) {
+            if (!audio) return;
+            try {
+                if (restart) audio.currentTime = 0;
+                const p = audio.play();
+                if (p && typeof p.catch === 'function') p.catch(() => {});
+            } catch (_e) {
+                // ignore sound errors
+            }
+        }
+
+        function playSpinTickSound() {
+            if (!clickAudioPool.length) return;
+            const snd = clickAudioPool[clickAudioPoolIdx];
+            clickAudioPoolIdx = (clickAudioPoolIdx + 1) % clickAudioPool.length;
+            snd.volume = CLICK_VOLUME;
+            safePlay(snd, true);
+        }
+
+        function playWinSound() {
+            if (winAudio) winAudio.volume = WIN_VOLUME;
+            safePlay(winAudio, true);
+        }
+
+        function getCurrentTrackOffset(track) {
+            if (!track) return 0;
+            const tr = window.getComputedStyle(track).transform;
+            if (!tr || tr === 'none') return 0;
+            const m2 = tr.match(/^matrix\(([^)]+)\)$/);
+            if (m2) {
+                const p = m2[1].split(',');
+                const y = Number(p[5]);
+                return Number.isFinite(y) ? Math.max(0, -y) : 0;
+            }
+            const m3 = tr.match(/^matrix3d\(([^)]+)\)$/);
+            if (m3) {
+                const p = m3[1].split(',');
+                const y = Number(p[13]);
+                return Number.isFinite(y) ? Math.max(0, -y) : 0;
+            }
+            return 0;
+        }
+
+        function stopWinnerRollTicks() {
+            rollTickActive = false;
+            if (rollTickRafId) {
+                window.cancelAnimationFrame(rollTickRafId);
+                rollTickRafId = 0;
+            }
+        }
+
+        function tickLoop() {
+            const track = document.getElementById('countdownTrack');
+            if (!rollTickActive || !track) {
+                stopWinnerRollTicks();
+                return;
+            }
+            const off = getCurrentTrackOffset(track);
+            const step = Math.floor(off / ROULETTE_ITEM_HEIGHT);
+            if (step > rollTickLastStep) {
+                const now = Date.now();
+                if (now - rollTickLastPlayAt >= CLICK_MIN_INTERVAL_MS) {
+                    playSpinTickSound();
+                    rollTickLastPlayAt = now;
+                }
+                rollTickLastStep = step;
+            }
+            rollTickRafId = window.requestAnimationFrame(tickLoop);
+        }
+
+        function startWinnerRollTicks(startOffsetPx) {
+            ensureAudioPool();
+            stopWinnerRollTicks();
+            rollTickLastStep = Math.floor(Math.max(0, Number(startOffsetPx) || 0) / ROULETTE_ITEM_HEIGHT);
+            rollTickLastPlayAt = 0;
+            rollTickActive = true;
+            rollTickRafId = window.requestAnimationFrame(tickLoop);
+        }
+        
+        function formatTime(seconds) {
+            if (seconds === null || seconds === undefined) return '00:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        async function loadSettings() {
+            try {
+                const res = await fetch('/api/widget-settings');
+                settings = await res.json();
+            } catch (e) {
+                console.error('Error loading settings:', e);
+            }
+        }
+        
+        function getTextStyle() {
+            let style = '';
+            
+            if (settings.text_stroke_enabled) {
+                style += `-webkit-text-stroke: ${settings.text_stroke_width}px ${settings.text_stroke_color};`;
+            }
+            
+            if (settings.text_shadow_enabled) {
+                style += `text-shadow: ${settings.text_shadow_x}px ${settings.text_shadow_y}px ${settings.text_shadow_blur}px ${settings.text_shadow_color};`;
+            }
+            
+            return style;
+        }
+        
+        function applyElement(el, visible, color, size, text = null, extraStyle = '') {
+            if (!el) return;
+            
+            const textStyle = getTextStyle();
+            
+            if (visible === false) {
+                el.classList.add('hidden');
+            } else {
+                el.classList.remove('hidden');
+            }
+            
+            if (text !== null) {
+                el.textContent = text;
+            }
+            
+            el.style.cssText = `color: ${color}; font-size: ${size}px; ${extraStyle} ${textStyle}`;
+        }
+
+        function fitWinnerNameSize() {
+            const winnerState = document.getElementById('winnerState');
+            const winnerName = document.getElementById('winnerName');
+            if (!winnerState || !winnerName) return;
+            if (winnerState.style.display === 'none') return;
+
+            const base = Math.max(12, Number(settings.font_size_winner_name) || 20);
+            let size = base;
+            winnerName.style.fontSize = `${size}px`;
+            winnerName.style.whiteSpace = 'nowrap';
+
+            // Уменьшаем только если реально не влезает весь winner-блок (ник + таймер + подписи).
+            while (winnerState.scrollWidth > winnerState.clientWidth && size > 11) {
+                size -= 1;
+                winnerName.style.fontSize = `${size}px`;
+            }
+        }
+
+        function participantsSignatureForRoulette(participants) {
+            return JSON.stringify(Array.isArray(participants) ? participants : []);
+        }
+
+        function shuffleArray(input) {
+            const arr = input.slice();
+            for (let i = arr.length - 1; i > 0; i -= 1) {
+                const j = Math.floor(Math.random() * (i + 1));
+                const t = arr[i];
+                arr[i] = arr[j];
+                arr[j] = t;
+            }
+            return arr;
+        }
+
+        function setRouletteSpeedByCountdown(countdown) {
+            if (countdown >= 5) rouletteTargetSpeed = 560;
+            else if (countdown === 4) rouletteTargetSpeed = 450;
+            else if (countdown === 3) rouletteTargetSpeed = 340;
+            else if (countdown === 2) rouletteTargetSpeed = 240;
+            else rouletteTargetSpeed = 135;
+        }
+
+        function fitRouletteNameSize(nameNode) {
+            if (!nameNode || !nameNode.parentElement) return;
+            const row = nameNode.parentElement;
+            const rowWidth = row.clientWidth;
+            if (!rowWidth) return;
+
+            const maxWidth = Math.max(30, rowWidth - 8);
+            const base = Math.max(14, Math.min(30, Number(settings.font_size_countdown) || 24));
+            let size = base;
+            nameNode.style.fontSize = `${size}px`;
+            nameNode.style.letterSpacing = size <= 16 ? "0" : "0.01em";
+            while (nameNode.scrollWidth > maxWidth && size > 12) {
+                size -= 1;
+                nameNode.style.fontSize = `${size}px`;
+                nameNode.style.letterSpacing = size <= 16 ? "0" : "0.01em";
+            }
+        }
+
+        function buildCountdownRoulette(participants) {
+            const track = document.getElementById('countdownTrack');
+            if (!track) return;
+
+            const names = (Array.isArray(participants) ? participants : [])
+                .map((n) => String(n || '').trim())
+                .filter(Boolean);
+            const source = names.length ? names : ['Участник'];
+            const minItems = 36;
+            const bag = [];
+            while (bag.length < minItems) {
+                bag.push(...shuffleArray(source));
+            }
+            const baseBag = bag.slice();
+            bag.push(...baseBag);
+
+            track.innerHTML = '';
+            for (let i = 0; i < bag.length; i += 1) {
+                const row = document.createElement('div');
+                row.className = 'countdown-item';
+                const name = document.createElement('span');
+                name.className = 'countdown-name';
+                name.textContent = bag[i];
+                row.appendChild(name);
+                track.appendChild(row);
+                fitRouletteNameSize(name);
+            }
+            track.style.transition = 'none';
+            track.style.transform = 'translateY(0px)';
+            rouletteOffsetPx = 0;
+            rouletteSpeed = 0;
+            rouletteLastTs = 0;
+        }
+
+        function rouletteStep(ts) {
+            const track = document.getElementById('countdownTrack');
+            if (!track) return;
+            const totalRows = track.children.length;
+            if (!totalRows) return;
+            const loopHeight = Math.floor(totalRows / 2) * ROULETTE_ITEM_HEIGHT;
+            if (loopHeight <= 0) return;
+
+            if (!rouletteLastTs) rouletteLastTs = ts;
+            const dt = Math.min(40, Math.max(0, ts - rouletteLastTs));
+            rouletteLastTs = ts;
+
+            const smooth = 0.11;
+            rouletteSpeed += (rouletteTargetSpeed - rouletteSpeed) * smooth;
+            rouletteOffsetPx += (rouletteSpeed * dt) / 1000;
+            while (rouletteOffsetPx >= loopHeight) rouletteOffsetPx -= loopHeight;
+
+            track.style.transform = `translateY(-${rouletteOffsetPx.toFixed(2)}px)`;
+            rouletteRafId = window.requestAnimationFrame(rouletteStep);
+        }
+
+        function startRoulette(participants, countdown) {
+            const sig = participantsSignatureForRoulette(participants);
+            if (sig !== rouletteParticipantsSig) {
+                rouletteParticipantsSig = sig;
+                buildCountdownRoulette(participants);
+            }
+            setRouletteSpeedByCountdown(countdown);
+            if (rouletteRafId) return;
+            rouletteRafId = window.requestAnimationFrame(rouletteStep);
+        }
+
+        function setRouletteWinnerHoldName(name) {
+            const track = document.getElementById('countdownTrack');
+            if (!track) return;
+            const shown = String(name || 'Победитель');
+            track.innerHTML = '';
+            for (let i = 0; i < 7; i += 1) {
+                const row = document.createElement('div');
+                row.className = 'countdown-item';
+                const nm = document.createElement('span');
+                nm.className = 'countdown-name';
+                nm.textContent = shown;
+                row.appendChild(nm);
+                track.appendChild(row);
+                fitRouletteNameSize(nm);
+            }
+            rouletteOffsetPx = 0;
+            track.style.transition = 'none';
+            track.style.transform = 'translateY(0px)';
+        }
+
+        function randomNameFromPool(pool) {
+            if (!Array.isArray(pool) || pool.length === 0) return 'Участник';
+            return pool[Math.floor(Math.random() * pool.length)];
+        }
+
+        function renderRouletteTrackRows(names) {
+            const track = document.getElementById('countdownTrack');
+            if (!track) return;
+            const list = Array.isArray(names) && names.length ? names : ['Участник'];
+            track.innerHTML = '';
+            for (let i = 0; i < list.length; i += 1) {
+                const row = document.createElement('div');
+                row.className = 'countdown-item';
+                const nm = document.createElement('span');
+                nm.className = 'countdown-name';
+                nm.textContent = String(list[i] || '');
+                row.appendChild(nm);
+                track.appendChild(row);
+                fitRouletteNameSize(nm);
+            }
+        }
+
+        function startWinnerRollAnimation(participants, winnerName) {
+            const track = document.getElementById('countdownTrack');
+            if (!track) return;
+            if (winnerRollState === 'rolling' || winnerRollState === 'done') return;
+
+            const finalName = String(winnerName || 'Победитель');
+            const source = (Array.isArray(participants) ? participants : [])
+                .map((x) => String(x || '').trim())
+                .filter(Boolean);
+            const pool = source.length ? source : ['Участник'];
+
+            winnerRollState = 'rolling';
+            winnerRollName = finalName;
+
+            const currentRows = [];
+            for (let i = 0; i < track.children.length; i += 1) {
+                const text = track.children[i].querySelector('.countdown-name')?.textContent || randomNameFromPool(pool);
+                currentRows.push(text);
+            }
+            const baseRows = currentRows.length ? currentRows : shuffleArray(pool).slice(0, 24);
+            const randomTail = [];
+            const tailLen = 44;
+            for (let i = 0; i < tailLen; i += 1) randomTail.push(randomNameFromPool(pool));
+            const winnerTail = [];
+            for (let i = 0; i < 18; i += 1) winnerTail.push(finalName);
+
+            const rows = baseRows.concat(randomTail, [finalName], winnerTail);
+            renderRouletteTrackRows(rows);
+
+            const startOffset = Math.max(0, Number(rouletteOffsetPx) || 0);
+            const winnerIndex = baseRows.length + randomTail.length;
+            const targetOffset = winnerIndex * ROULETTE_ITEM_HEIGHT;
+            const distance = Math.max(ROULETTE_ITEM_HEIGHT * 12, targetOffset - startOffset);
+            const duration = Math.max(4200, Math.min(6200, Math.round(3700 + distance * 2.4)));
+
+            if (rouletteRafId) {
+                window.cancelAnimationFrame(rouletteRafId);
+                rouletteRafId = 0;
+            }
+            rouletteLastTs = 0;
+            rouletteTargetSpeed = 0;
+            rouletteSpeed = 0;
+
+            track.style.transition = 'none';
+            track.style.transform = `translateY(-${startOffset.toFixed(2)}px)`;
+            void track.offsetWidth;
+
+            track.style.transition = `transform ${duration}ms cubic-bezier(0.12, 0.82, 0.18, 1)`;
+            track.style.transform = `translateY(-${targetOffset.toFixed(2)}px)`;
+            startWinnerRollTicks(startOffset);
+
+            const onDone = () => {
+                track.removeEventListener('transitionend', onDone);
+                stopWinnerRollTicks();
+                setRouletteWinnerHoldName(winnerRollName);
+                winnerRollState = 'done';
+                winnerHoldUntil = Date.now() + 260;
+            };
+            track.addEventListener('transitionend', onDone, { once: true });
+        }
+
+        function resetWinnerRollState() {
+            stopWinnerRollTicks();
+            winnerRollState = 'idle';
+            winnerRollName = '';
+            winnerHoldUntil = 0;
+            winnerFadeStarted = false;
+            winnerSoundPlayedFor = '';
+        }
+
+        function holdWinnerIfNeeded() {
+            if (!winnerHoldUntil) return false;
+            if (Date.now() < winnerHoldUntil) return true;
+            winnerHoldUntil = 0;
+            return false;
+        }
+
+        function ensureCountdownTrackVisible() {
+            const countdownState = document.getElementById('countdownState');
+            if (!countdownState) return;
+            countdownState.style.display = 'flex';
+            countdownState.style.opacity = '';
+        }
+
+        function ensureCountdownPreview(participants) {
+            const sig = participantsSignatureForRoulette(participants);
+            if (sig === countdownPreviewSig) return;
+            countdownPreviewSig = sig;
+            buildCountdownRoulette(participants);
+            stopRoulette(false);
+            const track = document.getElementById('countdownTrack');
+            if (track) {
+                track.style.transition = 'none';
+                track.style.transform = 'translateY(0px)';
+            }
+        }
+
+        function stopRoulette(resetTrack = false) {
+            if (rouletteRafId) {
+                window.cancelAnimationFrame(rouletteRafId);
+                rouletteRafId = 0;
+            }
+            rouletteLastTs = 0;
+            rouletteTargetSpeed = 0;
+            rouletteSpeed = 0;
+            if (resetTrack) {
+                rouletteParticipantsSig = '';
+                rouletteOffsetPx = 0;
+                countdownPreviewSig = '';
+                resetWinnerRollState();
+                const t = document.getElementById('countdownTrack');
+                if (t) {
+                    t.style.transition = 'none';
+                    t.style.transform = 'translateY(0px)';
+                }
+            }
+        }
+
+        function fadeFromRouletteToWinner(winnerState, countdownState, onDone) {
+            if (!winnerState || !countdownState) {
+                if (typeof onDone === 'function') onDone();
+                return;
+            }
+            winnerState.style.display = 'flex';
+            winnerState.style.opacity = '0';
+            countdownState.style.opacity = '1';
+            requestAnimationFrame(() => {
+                winnerState.style.opacity = '1';
+                countdownState.style.opacity = '0';
+            });
+            setTimeout(() => {
+                countdownState.style.display = 'none';
+                countdownState.style.opacity = '';
+                winnerState.style.opacity = '';
+                if (typeof onDone === 'function') onDone();
+            }, 560);
+        }
+        
+        function applyWidgetAlign() {
+            const stage = document.getElementById('widgetStage');
+            if (!stage) return;
+            const align = settings.widget_align_h || 'left';
+            stage.classList.remove('align-left', 'align-center', 'align-right');
+            stage.classList.add('align-' + align);
+        }
+
+        function applySettings(mode, data) {
+            const widget = document.getElementById('widget');
+            
+            widget.style.width = settings.width + 'px';
+            widget.style.minWidth = settings.width + 'px';
+            widget.style.height = settings.height + 'px';
+            widget.style.borderRadius = settings.border_radius + 'px';
+            applyWidgetAlign();
+            
+            // Background
+            if (mode === 'winner' || mode === 'countdown') {
+                if (settings.bg_type_winner === 'image' && settings.bg_image_winner) {
+                    widget.style.background = `url('images/${settings.bg_image_winner}') center/cover`;
+                } else if (settings.bg_type_winner === 'color') {
+                    widget.style.background = settings.winner_bg_1;
+                } else {
+                    widget.style.background = `linear-gradient(135deg, ${settings.winner_bg_1} 0%, ${settings.winner_bg_2} 100%)`;
+                }
+            } else {
+                if (settings.bg_type_active === 'image' && settings.bg_image_active) {
+                    widget.style.background = `url('images/${settings.bg_image_active}') center/cover`;
+                } else if (settings.bg_type_active === 'color') {
+                    widget.style.background = settings.bg_color_1;
+                } else {
+                    widget.style.background = `linear-gradient(135deg, ${settings.bg_color_1} 0%, ${settings.bg_color_2} 100%)`;
+                }
+            }
+            
+            // Active elements
+            applyElement(
+                document.getElementById('labelText'),
+                settings.show_label,
+                settings.text_color_label,
+                settings.font_size_label,
+                settings.text_label
+            );
+            
+            applyElement(
+                document.getElementById('keyword'),
+                settings.show_keyword,
+                settings.text_color_keyword,
+                settings.font_size_keyword,
+                data?.keyword || '123',
+                `background: ${settings.keyword_bg_color}; padding: 3px 12px; border-radius: 15px;`
+            );
+            
+            applyElement(
+                document.getElementById('separatorText'),
+                settings.show_separator,
+                settings.text_color_separator,
+                settings.font_size_separator,
+                settings.text_separator
+            );
+            
+            applyElement(
+                document.getElementById('countText'),
+                settings.show_count,
+                settings.text_color_count,
+                settings.font_size_count,
+                (data?.count || 0) + ' ' + (settings.text_count_suffix || '👥')
+            );
+            
+            // Winner elements
+            applyElement(
+                document.getElementById('winnerLabelStart'),
+                settings.show_winner_label_start,
+                settings.text_color_winner_label,
+                settings.font_size_winner_label,
+                settings.text_winner_label_start
+            );
+            
+            applyElement(
+                document.getElementById('winnerLabelEnd'),
+                settings.show_winner_label_end,
+                settings.text_color_winner_label,
+                settings.font_size_winner_label,
+                settings.text_winner_label_end
+            );
+            
+            applyElement(
+                document.getElementById('winnerName'),
+                settings.show_winner_name,
+                settings.text_color_winner_name,
+                settings.font_size_winner_name,
+                data?.winner || 'Username',
+                'font-weight: bold;'
+            );
+            
+            // Timer
+            const timerText = (settings.text_timer_prefix || '⏱️') + ' ' + formatTime(data?.timer_seconds);
+            applyElement(
+                document.getElementById('timerText'),
+                settings.show_timer && data?.winner,
+                settings.text_color_timer,
+                settings.font_size_timer,
+                timerText
+            );
+            
+            // Avatar
+            const avatarEl = document.getElementById('winnerAvatar');
+            if (settings.show_winner_avatar && data?.winner_avatar) {
+                avatarEl.classList.remove('hidden');
+                avatarEl.src = data.winner_avatar;
+                avatarEl.style.width = settings.winner_avatar_size + 'px';
+                avatarEl.style.height = settings.winner_avatar_size + 'px';
+                avatarEl.style.borderRadius = settings.winner_avatar_border_radius + '%';
+            } else {
+                avatarEl.classList.add('hidden');
+            }
+            
+            // Winner info wrapper (подложка)
+            const winnerWrapper = document.getElementById('winnerInfoWrapper');
+            if (winnerWrapper) {
+                if (settings.winner_info_bg_enabled) {
+                    winnerWrapper.style.background = settings.winner_info_bg_color || 'rgba(0,0,0,0.3)';
+                } else {
+                    winnerWrapper.style.background = 'transparent';
+                }
+            }
+            
+            // Countdown
+            const roulette = document.getElementById('countdownRoulette');
+            if (roulette) {
+                roulette.style.color = settings.text_color_countdown || '#fff';
+                roulette.style.fontSize = `${settings.font_size_countdown || 28}px`;
+                roulette.querySelectorAll('.countdown-name').forEach((node) => fitRouletteNameSize(node));
+            }
+        }
+
+        function joinBatchLabel(n) {
+            const k = Math.floor(Number(n)) || 0;
+            if (k <= 0) return '+0';
+            const mod10 = k % 10;
+            const mod100 = k % 100;
+            if (mod10 === 1 && mod100 !== 11) return `+${k} участник`;
+            if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return `+${k} участника`;
+            return `+${k} участников`;
+        }
+
+        function dequeueJoinFxEntry() {
+            if (joinFxQueue.length === 0) return null;
+            let e = joinFxQueue.shift();
+            if (e && typeof e === 'object' && e.kind === 'batch') {
+                while (joinFxQueue.length > 0) {
+                    const peek = joinFxQueue[0];
+                    if (peek && typeof peek === 'object' && peek.kind === 'batch') {
+                        const next = joinFxQueue.shift();
+                        e = { kind: 'batch', n: e.n + next.n };
+                    } else break;
+                }
+            }
+            return e;
+        }
+
+        function enqueueJoinFx(usernames) {
+            if (!Array.isArray(usernames) || usernames.length === 0) return;
+            const n = usernames.length;
+            if (n >= JOIN_FX_BATCH_THRESHOLD) {
+                const last = joinFxQueue[joinFxQueue.length - 1];
+                if (last && typeof last === 'object' && last.kind === 'batch') {
+                    last.n += n;
+                } else if (joinFxQueue.length < JOIN_FX_MAX_QUEUE) {
+                    joinFxQueue.push({ kind: 'batch', n });
+                }
+            } else {
+                for (const name of usernames) {
+                    if (joinFxQueue.length >= JOIN_FX_MAX_QUEUE) break;
+                    joinFxQueue.push(name);
+                }
+            }
+            flushJoinFxQueue();
+        }
+
+        function flushJoinFxQueue() {
+            const layer = document.getElementById('joinFxLayer');
+            if (!layer) return;
+
+            while (joinFxActive < JOIN_FX_MAX_ACTIVE && joinFxQueue.length > 0) {
+                const entry = dequeueJoinFxEntry();
+                if (entry == null) break;
+                joinFxActive += 1;
+
+                const isBatch = entry && typeof entry === 'object' && entry.kind === 'batch';
+                const item = document.createElement('span');
+                item.className = 'join-fx-item' + (isBatch ? ' join-fx-batch' : '');
+                if (isBatch) {
+                    item.textContent = joinBatchLabel(entry.n);
+                    item.style.animationDuration = '1.2s';
+                } else {
+                    item.textContent = `+ ${entry}`;
+                    item.style.animationDuration = '1.75s';
+                }
+                item.style.top = `${(joinFxActive - 1) * JOIN_FX_ROW_GAP}px`;
+                item.style.fontSize = JOIN_FX_BASE_FONT + 'px';
+
+                item.addEventListener('animationend', () => {
+                    item.remove();
+                    joinFxActive = Math.max(0, joinFxActive - 1);
+                    if (joinFxQueue.length > 0) {
+                        requestAnimationFrame(flushJoinFxQueue);
+                    }
+                });
+
+                layer.appendChild(item);
+                fitJoinFxFontSize(item);
+            }
+        }
+
+        function fitJoinFxFontSize(item) {
+            if (!item) return;
+            let size = JOIN_FX_BASE_FONT;
+            const textLength = (item.textContent || '').length;
+
+            if (textLength > 22) size = 17;
+            if (textLength > 30) size = 16;
+            if (textLength > 38) size = 14;
+            if (textLength > 48) size = 13;
+
+            item.style.fontSize = size + 'px';
+
+            while (item.offsetWidth > JOIN_FX_MAX_TEXT_WIDTH && size > JOIN_FX_MIN_FONT) {
+                size -= 1;
+                item.style.fontSize = size + 'px';
+            }
+        }
+        
+        async function update() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                
+                const widget = document.getElementById('widget');
+                const activeState = document.getElementById('activeState');
+                const winnerState = document.getElementById('winnerState');
+                const countdownState = document.getElementById('countdownState');
+                
+                let newState = 'hidden';
+                
+                if (data.countdown > 0) {
+                    newState = 'countdown';
+                } else if (data.winner) {
+                    newState = 'winner';
+                } else if (data.is_active) {
+                    newState = 'active';
+                }
+                
+                // Countdown
+                if (newState === 'countdown') {
+                    if (currentState !== 'countdown') {
+                        resetWinnerRollState();
+                    }
+                    applySettings('countdown', data);
+                    widget.classList.remove('winner-mode');
+                    activeState.style.display = 'none';
+                    winnerState.style.display = 'none';
+                    countdownState.style.display = 'flex';
+                    // Если победитель уже предвыбран — запускаем сразу финальную плавную прокрутку.
+                    // Иначе показываем статичную витрину имён до момента предвыбора.
+                    if (data.pending_winner) {
+                        startWinnerRollAnimation(data.participants || [], data.pending_winner);
+                    } else {
+                        ensureCountdownPreview(data.participants || []);
+                    }
+                    lastCountdown = data.countdown;
+                    
+                    widget.classList.add('visible');
+                    
+                // Winner
+                } else if (newState === 'winner') {
+                    const finalWinnerName = data.pending_winner || data.winner || 'Победитель';
+                    if (winnerRollState === 'idle') {
+                        startWinnerRollAnimation(data.participants || [], finalWinnerName);
+                    }
+                    if (winnerRollState !== 'done' || holdWinnerIfNeeded()) {
+                        applySettings('countdown', data);
+                        widget.classList.remove('winner-mode');
+                        activeState.style.display = 'none';
+                        winnerState.style.display = 'none';
+                        ensureCountdownTrackVisible();
+                        widget.classList.add('visible');
+                    } else {
+                        ensureAudioPool();
+                        applySettings('winner', data);
+                        widget.classList.add('winner-mode');
+                        activeState.style.display = 'none';
+                        if (!winnerFadeStarted && countdownState.style.display !== 'none') {
+                            winnerFadeStarted = true;
+                            fadeFromRouletteToWinner(winnerState, countdownState, () => {
+                                winnerFadeStarted = false;
+                            });
+                        } else if (!winnerFadeStarted) {
+                            countdownState.style.display = 'none';
+                            winnerState.style.display = 'flex';
+                        }
+
+                        document.getElementById('winnerName').textContent = finalWinnerName;
+                        const timerText = (settings.text_timer_prefix || '⏱️') + ' ' + formatTime(data.timer_seconds);
+                        document.getElementById('timerText').textContent = timerText;
+                        fitWinnerNameSize();
+                        if (winnerSoundPlayedFor !== finalWinnerName) {
+                            winnerSoundPlayedFor = finalWinnerName;
+                            playWinSound();
+                        }
+
+                        widget.classList.add('visible');
+                        lastWinner = data.winner;
+                        lastParticipantsSet = new Set(data.participants || []);
+                    }
+                    
+                // Active
+                } else if (newState === 'active') {
+                    resetWinnerRollState();
+                    stopRoulette(true);
+                    applySettings('active', data);
+                    widget.classList.remove('winner-mode');
+                    activeState.style.display = 'flex';
+                    winnerState.style.display = 'none';
+                    countdownState.style.display = 'none';
+                    
+                    document.getElementById('keyword').textContent = data.keyword;
+                    document.getElementById('countText').textContent = data.count + ' ' + (settings.text_count_suffix || '👥');
+
+                    const nowSet = new Set(data.participants || []);
+                    const newUsers = [];
+                    for (const user of nowSet) {
+                        if (!lastParticipantsSet.has(user)) {
+                            newUsers.push(user);
+                        }
+                    }
+                    if (newUsers.length > 0) {
+                        enqueueJoinFx(newUsers);
+                    }
+                    lastParticipantsSet = nowSet;
+                    
+                    widget.classList.add('visible');
+                    lastWinner = null;
+                    lastCountdown = 0;
+                    
+                // Hidden
+                } else {
+                    resetWinnerRollState();
+                    stopRoulette(true);
+                    widget.classList.remove('visible');
+                    lastWinner = null;
+                    lastCountdown = 0;
+                    lastParticipantsSet = new Set();
+                    joinFxQueue = [];
+                }
+                
+                currentState = newState;
+                
+            } catch (e) {
+                console.error('Error updating:', e);
+            }
+        }
+        
+        loadSettings();
+        setInterval(update, 200);
+        setInterval(loadSettings, 5000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Node
+node_modules/
+
+# Локальные данные и секреты
+data/*.db
+data/secret.key
+data/admin_dep_calendar_seed.json
+giveaway-bot/giveaway_bot/widget_settings.json
+giveaway-bot/giveaway_bot/channel.json
+
+# Electron / сборки (dist календаря коммитим для веб-версии)
+dep-calendar/release/
+dep-calendar/node_modules/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+
+# Прочее
+8765
+8766
+giveaway-bot/Untitled
+text-giveaway-bot-main/
+dep-calendar/.vite/

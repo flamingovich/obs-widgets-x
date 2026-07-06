@@ -1,0 +1,34 @@
+{
+  "name": "dep-calendar",
+  "version": "1.0.0",
+  "description": "Casino finance tracker for streamers",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build": "vite build && electron-builder",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "html-to-image": "^1.11.13",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8",
+    "vite": "^6.0.7",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.depcalendar.app",
+    "productName": "Dep Calendar",
+    "directories": { "output": "release" },
+    "files": ["dist/**/*", "electron/**/*"],
+    "mac": { "category": "public.app-category.finance" },
+    "win": { "target": "nsis" },
+    "linux": { "target": "AppImage" }
+  }
+}

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ru" class="widget-html">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <title>OBS Roulette Widget</title>
+    <link rel="stylesheet" href="./styles.css?v=ct20260435b" />
+  </head>
+  <body class="widget-page" data-page="wheel">
+    <main class="roulette-shell">
+      <div class="cards-shell cards-shell--overlay" id="cardsShell">
+        <div class="cards-stack">
+          <article class="play-card face-down" id="cardMain"></article>
+        </div>
+      </div>
+
+      <section id="caseStage" class="case-stage hidden">
+        <div class="case-window">
+          <div class="case-center-line"></div>
+          <div id="caseTrack" class="case-track"></div>
+        </div>
+      </section>
+
+      <section class="roulette-board">
+        <div class="wheel-stage is-concealed">
+          <div class="wheel-pointer top" aria-hidden="true"></div>
+          <div id="wheelRotor" class="wheel-rotor">
+            <div class="wheel-metal-rim" aria-hidden="true"></div>
+            <div class="wheel-pegs" aria-hidden="true"></div>
+            <div id="wheel" class="wheel">
+              <div class="wheel-grain" aria-hidden="true"></div>
+              <div id="wheelLabels" class="wheel-labels"></div>
+            </div>
+            <div class="wheel-hub" aria-hidden="true">
+              <div class="wheel-hub-glow"></div>
+              <div class="wheel-hub-sunburst"></div>
+              <div class="wheel-hub-ring"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="./app.js?v=ct20260435b"></script>
+  </body>
+</html>
