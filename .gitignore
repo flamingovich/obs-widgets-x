@@ -14,6 +14,7 @@ data/secret.key
 data/admin_dep_calendar_seed.json
 giveaway-bot/giveaway_bot/widget_settings.json
 giveaway-bot/giveaway_bot/channel.json
+wallet-dep-withdraw/state/
 
 # Electron / сборки (dist календаря коммитим для веб-версии)
 dep-calendar/release/
@@ -25,6 +26,7 @@ dep-calendar/node_modules/
 .DS_Store
 Thumbs.db
 *.log
+.logs/
 
 # Прочее
 8765
@@ -32,3 +34,6 @@ Thumbs.db
 giveaway-bot/Untitled
 text-giveaway-bot-main/
 dep-calendar/.vite/
+
+# Local backups
+backups/

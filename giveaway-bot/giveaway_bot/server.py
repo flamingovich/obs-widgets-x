@@ -24,10 +24,10 @@ from user_context import (
     get_user_id,
     get_stop_flag,
     get_stop_flag_for_user,
-    get_chat_thread,
-    set_chat_thread,
-    get_chat_instance,
-    set_chat_instance,
+    get_chat_thread_for_user,
+    set_chat_thread_for_user,
+    bump_chat_session,
+    get_chat_session,
     resolve_user,
     _chat_instances,
 )
@@ -112,7 +112,7 @@ default_widget_settings = {
 }
 
 widget_settings = default_widget_settings.copy()
-_settings_lock = threading.Lock()
+_settings_lock = threading.RLock()
 _settings_cache: dict[int, dict] = {}
 
 saved_channel = {
@@ -427,57 +427,193 @@ def get_author_info(message):
     return name, avatar
 
 
-def watch_chat(user_id: int):
+def _chat_should_listen(gw: dict) -> bool:
+    """Keep listening while collecting participants or waiting for winner reply."""
+    if gw.get("is_test_mode"):
+        return False
+    return bool(gw.get("is_active") or gw.get("winner"))
+
+
+def _terminate_chat_instance(user_id: int) -> None:
+    inst = _chat_instances.get(user_id)
+    if inst is None:
+        return
+    for meth in ("terminate", "stop"):
+        fn = getattr(inst, meth, None)
+        if callable(fn):
+            try:
+                fn()
+            except Exception:
+                pass
+            break
+
+
+def _stop_chat_watcher(user_id: int, join_timeout: float = 5.0) -> None:
+    """Politely stop current watcher. Does not clear giveaway participants/winner."""
+    stop_event = get_stop_flag_for_user(user_id)
+    stop_event.set()
+    bump_chat_session(user_id)
+    gw = get_giveaway_for_user(user_id)
+    gw["chat_reconnecting"] = False
+    _terminate_chat_instance(user_id)
+    t = get_chat_thread_for_user(user_id)
+    if t and t.is_alive() and t is not threading.current_thread():
+        t.join(timeout=join_timeout)
+    if _chat_instances.get(user_id) is not None:
+        _chat_instances.pop(user_id, None)
+    gw["is_connected"] = False
+
+
+def _start_chat_watcher(user_id: int) -> None:
+    """Start (or replace) chat watcher. Never resets participants/winner/timer."""
+    _stop_chat_watcher(user_id)
+    stop_event = get_stop_flag_for_user(user_id)
+    stop_event.clear()
+    session_id = bump_chat_session(user_id)
+    gw = get_giveaway_for_user(user_id)
+    gw["chat_reconnecting"] = False
+    thread = threading.Thread(
+        target=watch_chat, args=(user_id, session_id), daemon=True, name=f"watch-chat-{user_id}"
+    )
+    set_chat_thread_for_user(user_id, thread)
+    thread.start()
+
+
+def watch_chat(user_id: int, session_id: int | None = None):
+    """
+    Listen to YouTube chat. If the connection drops while the giveaway still needs
+    chat (active collection or winner waiting), auto-reconnect with backoff.
+    Never clears participants / winner / timer.
+    """
     gw = get_giveaway_for_user(user_id)
     stop_event = get_stop_flag_for_user(user_id)
-    chat_instance = None
+    if session_id is None:
+        session_id = get_chat_session(user_id)
 
-    try:
-        chat_instance = pytchat.create(video_id=gw["video_id"], interruptable=False)
-        _chat_instances[user_id] = chat_instance
-        gw["is_connected"] = True
-        print(f"✅ Подключился к чату: {gw['video_id']} (user {user_id})")
+    backoff = 2.0
+    max_backoff = 30.0
 
-        while chat_instance.is_alive() and not stop_event.is_set():
-            try:
-                items = chat_instance.get()
-                for message in items.sync_items():
-                    author, avatar = get_author_info(message)
-                    text = message.message
+    def still_mine() -> bool:
+        return get_chat_session(user_id) == session_id and not stop_event.is_set()
 
-                    if gw["winner"] and author == gw["winner"]:
-                        if gw["winner_first_message_at"] is None:
-                            gw["winner_first_message_at"] = time.time()
-                            print(f"⏱️ Победитель ответил! Время: {time.time() - gw['winner_picked_at']:.1f} сек")
+    while still_mine() and _chat_should_listen(gw):
+        video_id = (gw.get("video_id") or "").strip()
+        if not video_id:
+            break
 
-                        gw["winner_messages"].append({
-                            "time": time.strftime("%H:%M:%S"),
-                            "text": text
-                        })
-                        gw["winner_messages"] = gw["winner_messages"][-50:]
-                        print(f"💬 {author}: {text}")
+        chat_instance = None
+        try:
+            if still_mine():
+                gw["is_connected"] = False
 
-                    keyword_ok = gw["keyword"].lower() in text.lower() if gw["keyword"] else False
-                    accept_by_mode = gw.get("accept_any_message", False) or keyword_ok
-                    selection_in_progress = int(gw.get("countdown") or 0) > 0
-                    session_collecting = gw["is_active"] or bool(gw.get("winner"))
-                    if session_collecting and (not selection_in_progress) and accept_by_mode:
-                        if author not in gw["participants"]:
-                            gw["participants"].append(author)
-                            gw["participants_data"][author] = {"avatar": avatar}
-                            print(f"✅ {author} участвует! (Всего: {len(gw['participants'])})")
+            chat_instance = pytchat.create(video_id=video_id, interruptable=False)
+            if not still_mine():
+                try:
+                    if hasattr(chat_instance, "terminate"):
+                        chat_instance.terminate()
+                except Exception:
+                    pass
+                break
 
-            except Exception as e:
-                print(f"Ошибка чтения: {e}")
+            _chat_instances[user_id] = chat_instance
+            gw["is_connected"] = True
+            gw["chat_reconnecting"] = False
+            backoff = 2.0
+            print(f"✅ Подключился к чату: {video_id} (user {user_id})")
 
-            time.sleep(0.5)
+            while (
+                still_mine()
+                and _chat_should_listen(gw)
+                and chat_instance.is_alive()
+            ):
+                try:
+                    items = chat_instance.get()
+                    if not still_mine():
+                        break
+                    for message in items.sync_items():
+                        if not still_mine():
+                            break
+                        author, avatar = get_author_info(message)
+                        text = message.message
 
-    except Exception as e:
-        print(f"Ошибка чата: {e}")
-    finally:
+                        if gw["winner"] and author == gw["winner"]:
+                            if gw["winner_first_message_at"] is None:
+                                gw["winner_first_message_at"] = time.time()
+                                print(
+                                    f"⏱️ Победитель ответил! "
+                                    f"Время: {time.time() - gw['winner_picked_at']:.1f} сек"
+                                )
+
+                            gw["winner_messages"].append({
+                                "time": time.strftime("%H:%M:%S"),
+                                "text": text,
+                            })
+                            gw["winner_messages"] = gw["winner_messages"][-50:]
+                            print(f"💬 {author}: {text}")
+
+                        keyword_ok = (
+                            gw["keyword"].lower() in text.lower() if gw["keyword"] else False
+                        )
+                        accept_by_mode = gw.get("accept_any_message", False) or keyword_ok
+                        selection_in_progress = int(gw.get("countdown") or 0) > 0
+                        session_collecting = gw["is_active"] or bool(gw.get("winner"))
+                        if session_collecting and (not selection_in_progress) and accept_by_mode:
+                            if author not in gw["participants"]:
+                                gw["participants"].append(author)
+                                gw["participants_data"][author] = {"avatar": avatar}
+                                print(
+                                    f"✅ {author} участвует! "
+                                    f"(Всего: {len(gw['participants'])})"
+                                )
+
+                except Exception as e:
+                    print(f"Ошибка чтения: {e}")
+                    # Transient read error — keep trying until is_alive dies
+                    if stop_event.wait(0.5):
+                        break
+                    continue
+
+                if stop_event.wait(0.5):
+                    break
+
+        except Exception as e:
+            print(f"Ошибка чата: {e}")
+        finally:
+            if still_mine():
+                if chat_instance is not None and _chat_instances.get(user_id) is chat_instance:
+                    _chat_instances.pop(user_id, None)
+                gw["is_connected"] = False
+            else:
+                # Superseded by a newer watcher — don't touch shared connection flags
+                if chat_instance is not None and _chat_instances.get(user_id) is chat_instance:
+                    _chat_instances.pop(user_id, None)
+                try:
+                    if chat_instance is not None and hasattr(chat_instance, "terminate"):
+                        chat_instance.terminate()
+                except Exception:
+                    pass
+
+        if not still_mine() or not _chat_should_listen(gw):
+            break
+
+        # Connection dropped while session still needs chat — auto-reconnect
+        gw["chat_reconnecting"] = True
+        wait_s = backoff
+        print(
+            f"♻️ Чат отвалился (user {user_id}), "
+            f"переподключение через {wait_s:.0f}с… "
+            f"(участники/победитель сохранены)"
+        )
+        if stop_event.wait(wait_s):
+            break
+        if not still_mine() or not _chat_should_listen(gw):
+            break
+        backoff = min(backoff * 1.7, max_backoff)
+
+    if still_mine():
         gw["is_connected"] = False
-        _chat_instances.pop(user_id, None)
-        print("❌ Отключился от чата")
+        gw["chat_reconnecting"] = False
+        print(f"❌ Отключился от чата (user {user_id})")
 
 
 # === СТРАНИЦЫ ===
@@ -618,6 +754,7 @@ def status():
         "winner_messages": giveaway["winner_messages"],
         "is_active": giveaway["is_active"],
         "is_connected": giveaway["is_connected"],
+        "chat_reconnecting": bool(giveaway.get("chat_reconnecting")),
         "countdown": giveaway["countdown"],
         "is_test_mode": giveaway.get("is_test_mode", False),
         "timer_seconds": timer_seconds,
@@ -636,9 +773,7 @@ def start():
         return jsonify({"success": False, "error": "Не удалось найти активный стрим на этом канале"})
     
     uid = get_user_id()
-    stop_event = get_stop_flag()
-    stop_event.set()
-    stop_event.clear()
+    # Сброс состояния розыгрыша — чат перезапускаем отдельно, без гонки stop/clear
     giveaway["video_id"] = video_id
     giveaway["keyword"] = data.get("keyword", "")
     giveaway["accept_any_message"] = bool(data.get("accept_any_message", False))
@@ -654,13 +789,12 @@ def start():
     giveaway["is_test_mode"] = False
     giveaway["test_participant_seq"] = 0
     giveaway["countdown"] = 0
+    giveaway["chat_reconnecting"] = False
     
     mode_text = "любое сообщение" if giveaway["accept_any_message"] else f"слово: {giveaway['keyword']}"
     print(f"🎲 Розыгрыш запущен! Режим: {mode_text}")
     
-    thread = threading.Thread(target=watch_chat, args=(uid,), daemon=True)
-    set_chat_thread(thread)
-    thread.start()
+    _start_chat_watcher(uid)
     
     return jsonify({"success": True, "video_id": video_id})
 
@@ -668,7 +802,8 @@ def start():
 @app.route('/api/start-test', methods=['POST'])
 def start_test():
     data = request.get_json(silent=True) or {}
-    get_stop_flag().set()
+    uid = get_user_id()
+    _stop_chat_watcher(uid)
 
     giveaway["video_id"] = ""
     giveaway["keyword"] = str(data.get("keyword", "") or "")
@@ -683,6 +818,7 @@ def start_test():
     giveaway["winner_first_message_at"] = None
     giveaway["is_active"] = True
     giveaway["is_connected"] = True
+    giveaway["chat_reconnecting"] = False
     giveaway["countdown"] = 0
     giveaway["is_test_mode"] = True
     giveaway["test_participant_seq"] = 0
@@ -724,83 +860,101 @@ def test_add_participant():
 
 @app.route('/api/stop', methods=['POST'])
 def stop():
-    get_stop_flag().set()
+    uid = get_user_id()
     giveaway["is_active"] = False
     giveaway["is_test_mode"] = False
-    giveaway["is_connected"] = False
     giveaway["countdown"] = 0
-    print("⏹️ Розыгрыш остановлен")
+    if giveaway.get("winner"):
+        # Сбор стоп, чат оставляем — ждём ответ победителя (авто-reconnect тоже работает)
+        print("⏹️ Сбор остановлен, чат ждёт сообщение победителя")
+    else:
+        _stop_chat_watcher(uid)
+        print("⏹️ Розыгрыш остановлен")
     return jsonify({"success": True})
 
 
 @app.route('/api/pick', methods=['POST'])
 def pick():
-    if not giveaway["participants"]:
+    gw = get_giveaway()
+    if not gw["participants"]:
         return jsonify({"success": False, "error": "Нет участников"})
-    if int(giveaway.get("countdown") or 0) > 0:
+    if int(gw.get("countdown") or 0) > 0:
         return jsonify({"success": False, "error": "Выбор уже идет"})
-    planned_winner = random.choice(giveaway["participants"])
-    giveaway["pending_winner"] = planned_winner
-    
-    def countdown_and_pick():
+    planned_winner = random.choice(gw["participants"])
+    gw["pending_winner"] = planned_winner
+    gw["countdown"] = 5
+    # Важно: в фоне нет Flask request context → нельзя писать через proxy giveaway
+    # (он уйдёт в user_id=0). Держим прямой dict текущего пользователя.
+    uid = get_user_id()
+
+    def countdown_and_pick(user_id: int, planned: str):
+        state = get_giveaway_for_user(user_id)
         for i in [5, 4, 3, 2, 1]:
-            giveaway["countdown"] = i
+            state["countdown"] = i
             time.sleep(1)
-        
-        giveaway["countdown"] = 0
-        winner = giveaway.get("pending_winner") or planned_winner
-        giveaway["winner"] = winner
-        giveaway["winner_avatar"] = giveaway["participants_data"].get(winner, {}).get("avatar")
-        giveaway["winner_messages"] = []
-        giveaway["winner_picked_at"] = time.time()
-        giveaway["winner_first_message_at"] = None
-        giveaway["is_active"] = False
-        giveaway["pending_winner"] = winner
-        print(f"🎉 Победитель: {giveaway['winner']}")
-    
-    thread = threading.Thread(target=countdown_and_pick, daemon=True)
+
+        state["countdown"] = 0
+        winner = state.get("pending_winner") or planned
+        state["winner"] = winner
+        state["winner_avatar"] = state["participants_data"].get(winner, {}).get("avatar")
+        state["winner_messages"] = []
+        state["winner_picked_at"] = time.time()
+        state["winner_first_message_at"] = None
+        state["is_active"] = False
+        state["pending_winner"] = winner
+        print(f"🎉 Победитель: {state['winner']} (user {user_id})")
+
+    thread = threading.Thread(
+        target=countdown_and_pick, args=(uid, planned_winner), daemon=True
+    )
     thread.start()
-    
-    return jsonify({"success": True})
+
+    return jsonify({"success": True, "pending_winner": planned_winner})
 
 
 @app.route('/api/reroll', methods=['POST'])
 def reroll():
-    if not giveaway["participants"] or not giveaway["winner"]:
+    gw = get_giveaway()
+    if not gw["participants"] or not gw["winner"]:
         return jsonify({"success": False, "error": "Нет победителя для реролла"})
-    if int(giveaway.get("countdown") or 0) > 0:
+    if int(gw.get("countdown") or 0) > 0:
         return jsonify({"success": False, "error": "Реролл уже идет"})
-    
-    old_winner = giveaway["winner"]
-    if old_winner in giveaway["participants"]:
-        giveaway["participants"].remove(old_winner)
-    if old_winner in giveaway["participants_data"]:
-        del giveaway["participants_data"][old_winner]
-    
-    if not giveaway["participants"]:
+
+    old_winner = gw["winner"]
+    if old_winner in gw["participants"]:
+        gw["participants"].remove(old_winner)
+    if old_winner in gw["participants_data"]:
+        del gw["participants_data"][old_winner]
+
+    if not gw["participants"]:
         return jsonify({"success": False, "error": "Больше нет участников"})
-    planned_winner = random.choice(giveaway["participants"])
-    giveaway["pending_winner"] = planned_winner
-    
-    def countdown_and_reroll():
+    planned_winner = random.choice(gw["participants"])
+    gw["pending_winner"] = planned_winner
+    gw["countdown"] = 5
+    uid = get_user_id()
+
+    def countdown_and_reroll(user_id: int, planned: str):
+        state = get_giveaway_for_user(user_id)
         for i in [5, 4, 3, 2, 1]:
-            giveaway["countdown"] = i
+            state["countdown"] = i
             time.sleep(1)
-        
-        giveaway["countdown"] = 0
-        winner = giveaway.get("pending_winner") or planned_winner
-        giveaway["winner"] = winner
-        giveaway["winner_avatar"] = giveaway["participants_data"].get(winner, {}).get("avatar")
-        giveaway["winner_messages"] = []
-        giveaway["winner_picked_at"] = time.time()
-        giveaway["winner_first_message_at"] = None
-        giveaway["pending_winner"] = winner
-        print(f"🔄 Реролл! Новый победитель: {giveaway['winner']}")
-    
-    thread = threading.Thread(target=countdown_and_reroll, daemon=True)
+
+        state["countdown"] = 0
+        winner = state.get("pending_winner") or planned
+        state["winner"] = winner
+        state["winner_avatar"] = state["participants_data"].get(winner, {}).get("avatar")
+        state["winner_messages"] = []
+        state["winner_picked_at"] = time.time()
+        state["winner_first_message_at"] = None
+        state["pending_winner"] = winner
+        print(f"🔄 Реролл! Новый победитель: {state['winner']} (user {user_id})")
+
+    thread = threading.Thread(
+        target=countdown_and_reroll, args=(uid, planned_winner), daemon=True
+    )
     thread.start()
-    
-    return jsonify({"success": True, "old_winner": old_winner})
+
+    return jsonify({"success": True, "old_winner": old_winner, "pending_winner": planned_winner})
 
 
 @app.route('/api/giveaway-update', methods=['POST'])
@@ -828,29 +982,20 @@ def reconnect_chat():
     saved_channel["channel_id"] = channel_input
     save_channel()
 
+    giveaway["video_id"] = video_id
     should_run = bool(giveaway.get("is_active") or giveaway.get("winner"))
-    if not should_run:
-        giveaway["video_id"] = video_id
+    if not should_run or giveaway.get("is_test_mode"):
         return jsonify({"success": True, "video_id": video_id, "saved_only": True})
 
-    stop_event = get_stop_flag()
-    stop_event.set()
-    t = get_chat_thread()
-    if t and t.is_alive():
-        t.join(timeout=5.0)
-
-    stop_event.clear()
-    giveaway["video_id"] = video_id
     uid = get_user_id()
-    thread = threading.Thread(target=watch_chat, args=(uid,), daemon=True)
-    set_chat_thread(thread)
-    thread.start()
+    _start_chat_watcher(uid)
     return jsonify({"success": True, "video_id": video_id})
 
 
 @app.route('/api/reset', methods=['POST'])
 def reset():
-    get_stop_flag().set()
+    uid = get_user_id()
+    _stop_chat_watcher(uid)
     giveaway["video_id"] = ""
     giveaway["keyword"] = ""
     giveaway["accept_any_message"] = False
@@ -864,6 +1009,7 @@ def reset():
     giveaway["winner_first_message_at"] = None
     giveaway["is_active"] = False
     giveaway["is_connected"] = False
+    giveaway["chat_reconnecting"] = False
     giveaway["countdown"] = 0
     giveaway["is_test_mode"] = False
     giveaway["test_participant_seq"] = 0

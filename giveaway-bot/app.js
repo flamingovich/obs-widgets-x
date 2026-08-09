@@ -672,7 +672,16 @@ function getHybridApiBase() {
 function hybridApiUrl(path) {
   const p = path.startsWith("/") ? path : `/${path}`;
   const base = getHybridApiBase();
-  return base ? `${base}${p}` : p;
+  let url = base ? `${base}${p}` : p;
+  try {
+    const token = new URLSearchParams(window.location.search).get("token") || "";
+    if (token) {
+      const u = new URL(url, window.location.origin);
+      if (!u.searchParams.has("token")) u.searchParams.set("token", token);
+      url = base ? u.href : `${u.pathname}${u.search}${u.hash}`;
+    }
+  } catch (_e) {}
+  return url;
 }
 
 /** Отличить server.py от «python -m http.server» (у последнего нет /api/*). */

@@ -298,13 +298,17 @@
         });
 
         document.getElementById('btnPick').addEventListener('click', async () => {
-            await gwFetch('/api/pick', { method: 'POST', body: '{}' });
+            const res = await gwFetch('/api/pick', { method: 'POST', body: '{}' });
+            const d = await res.json().catch(() => ({}));
+            if (!d.success) setStatus(null, d.error || 'Не удалось выбрать победителя', true);
+            else setStatus(null, 'Идёт ролл…');
         });
 
         document.getElementById('btnReroll').addEventListener('click', async () => {
             const res = await gwFetch('/api/reroll', { method: 'POST', body: '{}' });
             const d = await res.json().catch(() => ({}));
             if (!d.success) setStatus(null, d.error || 'Реролл невозможен', true);
+            else setStatus(null, 'Реролл…');
         });
 
         document.getElementById('btnResetGw').addEventListener('click', async () => {
@@ -439,9 +443,12 @@
                 } else if (d.is_test_mode && d.is_active) {
                     dot.className = 'dot on';
                     line.textContent = 'Тестовый режим';
-                } else if (d.is_active && d.is_connected) {
+                } else if (d.chat_reconnecting && (d.is_active || d.winner)) {
                     dot.className = 'dot on';
-                    line.textContent = 'Чат подключён';
+                    line.textContent = 'Чат отвалился — переподключаю…';
+                } else if ((d.is_active || d.winner) && d.is_connected) {
+                    dot.className = 'dot on';
+                    line.textContent = d.winner && !d.is_active ? 'Чат подключён · ждём победителя' : 'Чат подключён';
                 } else if (d.is_active) {
                     dot.className = 'dot on';
                     line.textContent = 'Подключение…';

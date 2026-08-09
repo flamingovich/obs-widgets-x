@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Кошелёк — Конструктор</title>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    @font-face {
+      font-family: "Unbounded";
+      src: url("/wallet/Unbounded-SemiBold.ttf") format("truetype");
+      font-weight: 600;
+      font-style: normal;
+      font-display: swap;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Google Sans", "Roboto", sans-serif;
+      background: #1a1a1a;
+      min-height: 100vh;
+      color: #e0e0e0;
+    }
+    .header {
+      background: #252525;
+      border-bottom: 1px solid #333;
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+    }
+    .header-logo { display: flex; align-items: center; gap: 12px; font-size: 18px; font-weight: 500; color: #fff; }
+    .header-logo svg { width: 28px; height: 28px; fill: #38bdf8; }
+    .header-nav { display: flex; gap: 8px; align-items: center; }
+    .header-nav a {
+      color: #999; text-decoration: none; padding: 8px 16px; border-radius: 4px; font-size: 14px; font-weight: 500;
+    }
+    .header-nav a:hover { color: #fff; background: #333; }
+    .header-nav a.active { color: #38bdf8; background: rgba(56, 189, 248, 0.1); }
+    .btn-save {
+      padding: 8px 18px; border-radius: 6px; border: none; background: #38bdf8; color: #0b1220;
+      font-weight: 600; font-size: 14px; cursor: pointer; font-family: inherit;
+    }
+    .btn-save:hover { filter: brightness(1.08); }
+    .btn-save.saved { background: #4ade80; }
+    .btn-ghost {
+      padding: 8px 14px; border-radius: 6px; border: 1px solid #444; background: #333; color: #ccc;
+      font-size: 13px; cursor: pointer; font-family: inherit;
+    }
+    .btn-ghost:hover { border-color: #666; color: #fff; }
+    .layout { display: flex; padding-top: 56px; height: 100vh; }
+    .preview-panel {
+      flex: 1; display: flex; flex-direction: column; background: #1e1e1e; min-width: 0; overflow: hidden;
+    }
+    .preview-toolbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 16px 24px 0; flex-shrink: 0;
+    }
+    .align-btns { display: flex; gap: 8px; }
+    .align-btn {
+      padding: 8px 12px; background: #333; border: 1px solid #444; border-radius: 6px;
+      color: #999; font-size: 13px; font-family: inherit; cursor: pointer;
+    }
+    .align-btn:hover { border-color: #666; color: #fff; }
+    .align-btn.active { background: #38bdf8; border-color: #38bdf8; color: #0b1220; }
+    .preview-obs-note { text-align: right; font-size: 12px; color: #666; line-height: 1.45; }
+    .preview-obs-note strong { display: block; color: #38bdf8; font-size: 13px; font-weight: 500; margin-bottom: 2px; }
+    .preview-scale-host {
+      flex: 1; display: flex; justify-content: center; align-items: flex-start;
+      overflow: auto; padding: 16px 24px 24px; min-height: 280px;
+    }
+    .preview-viewport {
+      width: 1080px; height: 600px; position: relative; flex-shrink: 0;
+      background: repeating-conic-gradient(#2a2a2a 0% 25%, #333 0% 50%) 50% / 16px 16px;
+      border-radius: 4px; box-shadow: 0 0 0 1px #444;
+      transform-origin: top center;
+      display: flex; align-items: center; justify-content: center;
+      font-family: "Unbounded", system-ui, sans-serif; font-weight: 600;
+    }
+    .preview-viewport-label {
+      position: absolute; top: 8px; right: 8px; font-size: 11px; color: #aaa;
+      background: rgba(0,0,0,.55); padding: 2px 8px; border-radius: 4px; z-index: 2;
+      font-family: "Google Sans", sans-serif; font-weight: 400;
+    }
+    .preview-hint { flex-shrink: 0; padding: 8px 24px 20px; color: #666; font-size: 13px; }
+
+    .settings-panel {
+      width: 380px; flex-shrink: 0; background: #252525; border-left: 1px solid #333;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .settings-header {
+      padding: 16px 20px; border-bottom: 1px solid #333; font-size: 16px; font-weight: 500; color: #fff;
+    }
+    .tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 12px 12px 0; border-bottom: 1px solid #333; }
+    .tab {
+      padding: 8px 12px; background: transparent; border: none; color: #888; font-size: 13px;
+      font-family: inherit; cursor: pointer; border-radius: 6px 6px 0 0;
+    }
+    .tab:hover { color: #ccc; }
+    .tab.active { color: #38bdf8; background: #1e1e1e; }
+    .tab-contents { flex: 1; overflow: auto; padding: 16px 18px 24px; background: #1e1e1e; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .field { margin-bottom: 14px; }
+    .field label {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 12px; color: #999; margin-bottom: 6px;
+    }
+    .field label span.val { color: #38bdf8; font-variant-numeric: tabular-nums; }
+    .field input[type="range"] { width: 100%; }
+    .field input[type="text"], .field input[type="color"] {
+      width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid #444;
+      background: #2a2a2a; color: #eee; font-family: inherit; font-size: 13px;
+    }
+    .field input[type="color"] { padding: 2px; height: 36px; cursor: pointer; }
+    .check-row {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+      font-size: 13px; color: #ccc;
+    }
+    .check-row input { width: 16px; height: 16px; }
+    .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .section-title {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+      color: #666; margin: 16px 0 10px;
+    }
+    .section-title:first-child { margin-top: 0; }
+    .status-line { padding: 10px 18px; font-size: 12px; color: #777; border-top: 1px solid #333; }
+    .status-line.ok { color: #4ade80; }
+    .status-line.err { color: #f87171; }
+
+    /* Preview widget styles (mirror overlay) */
+    .overlay-stack {
+      --ww-card-width: 268px; --ww-card-radius: 20px; --ww-card-pad-y: 10px; --ww-card-pad-x: 13px;
+      --ww-bar-gap: 16px; --ww-stack-gap: 13px; --ww-icon-size: 56px; --ww-icon-radius: 14px;
+      --ww-amt-font: 42px; --ww-card-lbl-font: 32px; --ww-likes-font: 40px; --ww-likes-radius: 18px;
+      --ww-dep-amt: #eef9ff; --ww-dep-lbl: #7dd3fc; --ww-out-empty-amt: #f0a0a0; --ww-out-filled-amt: #4ade80;
+      --ww-out-lbl: #f0a0a0; --ww-out-filled-lbl: #86efac;
+      --ww-likes-lbl: #c9a86e; --ww-likes-cur: #fff8ee; --ww-likes-goal: #9a9288;
+      --ww-money-bg-opacity: 1; --ww-likes-bg-opacity: 1;
+      --ww-dep-border: rgba(186,230,253,.42); --ww-dep-bg-1: #2a4256; --ww-dep-bg-2: #1a2e42;
+      --ww-out-empty-border: rgba(248,113,113,.42); --ww-out-empty-bg-1: #4d2228; --ww-out-empty-bg-2: #32161b;
+      --ww-out-filled-border: rgba(74,222,128,.32); --ww-out-filled-bg-1: #1a3024; --ww-out-filled-bg-2: #102218;
+      --ww-likes-border: rgba(212,175,95,.26); --ww-likes-bg-1: #2a2620; --ww-likes-bg-2: #1a1713;
+      --ww-likes-fill-1: #d4af5f; --ww-likes-fill-2: #f0d78c;
+      display: inline-flex; flex-direction: column; align-items: center; gap: var(--ww-stack-gap); max-width: 100%;
+    }
+    .bar { display: flex; gap: var(--ww-bar-gap); padding: 6px; }
+    .card {
+      position: relative; overflow: hidden; flex: 0 0 var(--ww-card-width); width: var(--ww-card-width);
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      padding: var(--ww-card-pad-y) var(--ww-card-pad-x); border-radius: var(--ww-card-radius);
+      border: none; background: transparent; box-shadow: none;
+    }
+    .card > *:not(.card-bg) { position: relative; z-index: 1; }
+    .card-bg {
+      position: absolute; inset: 0; z-index: 0; border-radius: inherit; pointer-events: none; overflow: hidden;
+      opacity: 1; transform: translateZ(0);
+    }
+    .card.dep .card-bg {
+      border: 1px solid var(--ww-dep-border);
+      background: linear-gradient(156deg, var(--ww-dep-bg-1), var(--ww-dep-bg-2));
+      box-shadow: 0 12px 40px rgba(0,0,0,.55), 0 0 28px rgba(186,230,253,.18);
+    }
+    .card.out .card-bg {
+      border: 1px solid var(--ww-out-empty-border);
+      background: linear-gradient(204deg, var(--ww-out-empty-bg-1), var(--ww-out-empty-bg-2));
+      box-shadow: 0 12px 40px rgba(0,0,0,.55), 0 0 28px rgba(248,113,113,.18);
+    }
+    .card.out.out-has-value .card-bg {
+      border-color: var(--ww-out-filled-border);
+      background: linear-gradient(168deg, var(--ww-out-filled-bg-1), var(--ww-out-filled-bg-2));
+      box-shadow: 0 12px 40px rgba(0,0,0,.55), 0 0 28px rgba(74,222,128,.14);
+    }
+    .card-bg::before, .likes-card .card-bg::before {
+      content: ""; position: absolute; inset: -28%; z-index: 0; border-radius: 28%; pointer-events: none;
+      background: radial-gradient(ellipse at 20% 10%, rgba(255,255,255,.12), transparent 55%);
+      animation: glowFade 18s ease-in-out infinite;
+    }
+    @keyframes glowFade { 0%,100%{filter:brightness(.88)} 50%{filter:brightness(1.08)} }
+    .overlay-stack.no-glow .card-bg::before,
+    .overlay-stack.no-glow .likes-card .card-bg::before { animation: none; filter: brightness(.9); }
+    .overlay-stack.no-money-bg .card .card-bg { display: none; }
+    .overlay-stack.no-likes-bg .likes-card .card-bg { display: none; }
+    .overlay-stack.hide-icons .icon-wrap,
+    .overlay-stack.side-none .icon-wrap,
+    .overlay-stack.side-text .icon-wrap { display: none; }
+    .overlay-stack.side-none .card-lbl { display: none !important; }
+    .icon-wrap {
+      width: var(--ww-icon-size); height: var(--ww-icon-size); border-radius: var(--ww-icon-radius);
+      display: grid; place-items: center; background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.12);
+      font-size: 22px; color: #fff;
+    }
+    .card-lbl {
+      display: none; flex-shrink: 1; min-width: 0; max-width: none; overflow: visible; white-space: nowrap;
+      font-size: var(--ww-card-lbl-font, 32px); font-weight: 600; letter-spacing: .08em; line-height: 1.1;
+      text-shadow: 0 1px 2px rgba(0,0,0,.85);
+    }
+    .overlay-stack.side-text .card-lbl { display: inline-block; }
+    .card.dep .card-lbl { color: var(--ww-dep-lbl, #7dd3fc); font-size: var(--ww-dep-lbl-font, var(--ww-card-lbl-font, 32px)); }
+    .card.out .card-lbl { color: var(--ww-out-lbl, #f0a0a0); font-size: var(--ww-out-lbl-font, var(--ww-card-lbl-font, 32px)); }
+    .card.out.out-has-value .card-lbl { color: var(--ww-out-filled-lbl, #86efac); }
+    .card.dep .amt { font-size: var(--ww-dep-amt-font, var(--ww-amt-font)); }
+    .card.out .amt { font-size: var(--ww-out-amt-font, var(--ww-amt-font)); }
+    .amt {
+      font-size: var(--ww-amt-font); white-space: nowrap; line-height: 1.05;
+      text-shadow: 0 1px 2px rgba(0,0,0,.9);
+    }
+    .card.dep .amt { color: var(--ww-dep-amt); }
+    .card.out .amt { color: var(--ww-out-empty-amt); }
+    .card.out.out-has-value .amt { color: var(--ww-out-filled-amt); }
+    .amt-suf { font-size: .64em; opacity: .55; margin-left: .05em; }
+    .likes-card {
+      position: relative; overflow: hidden; padding: 11px 14px 13px;
+      border-radius: var(--ww-likes-radius); border: none; background: transparent; box-shadow: none;
+      min-width: calc(var(--ww-card-width) * 2 + var(--ww-bar-gap) + 12px);
+    }
+    .likes-card > *:not(.card-bg) { position: relative; z-index: 1; }
+    .likes-card .card-bg {
+      position: absolute; inset: 0; z-index: 0; border-radius: inherit; pointer-events: none; overflow: hidden;
+      opacity: 1; transform: translateZ(0);
+      border: 1px solid var(--ww-likes-border);
+      background: linear-gradient(172deg, var(--ww-likes-bg-1), var(--ww-likes-bg-2));
+      box-shadow: 0 12px 40px rgba(0,0,0,.55);
+    }
+    .likes-row { display: flex; justify-content: center; margin-bottom: 8px; }
+    .likes-line {
+      font-size: var(--ww-likes-font); white-space: nowrap; line-height: 1.2;
+      text-shadow: 0 1px 2px rgba(0,0,0,.82);
+    }
+    .likes-lbl { color: var(--ww-likes-lbl); letter-spacing: .12em; font-size: .76em; }
+    .likes-cur-part { color: var(--ww-likes-cur); }
+    .likes-goal-part { color: var(--ww-likes-goal); }
+    .likes-track {
+      height: 8px; border-radius: 999px; background: rgba(0,0,0,.45);
+      border: 1px solid rgba(255,255,255,.08); overflow: hidden;
+    }
+    .likes-fill {
+      height: 100%; width: 60%;
+      background: linear-gradient(90deg, var(--ww-likes-fill-1), var(--ww-likes-fill-2));
+      border-radius: 999px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-logo">
+      <svg viewBox="0 0 24 24"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+      Кошелёк — Конструктор
+    </div>
+    <div class="header-nav">
+      <a href="/">Хаб</a>
+      <a href="/wallet/constructor" class="active">Конструктор</a>
+      <button type="button" class="btn-ghost" id="btnReset">Сброс</button>
+      <button type="button" class="btn-save" id="btnSave">Сохранить</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="preview-panel">
+      <div class="preview-toolbar">
+        <div class="align-btns">
+          <button type="button" class="align-btn" data-align="left">Слева</button>
+          <button type="button" class="align-btn active" data-align="center">Центр</button>
+          <button type="button" class="align-btn" data-align="right">Справа</button>
+        </div>
+        <div class="preview-obs-note">
+          <strong>OBS Browser Source</strong>
+          Ширина × высота превью: 1080 × 600
+        </div>
+      </div>
+      <div class="preview-scale-host" id="scaleHost">
+        <div class="preview-viewport" id="viewport">
+          <div class="preview-viewport-label">1080 × 600</div>
+          <div class="overlay-stack" id="previewStack">
+            <div class="bar">
+              <div class="card dep">
+                <div class="card-bg" aria-hidden="true"></div>
+                <div class="icon-wrap">↓</div>
+                <span class="card-lbl">ДЕП</span>
+                <div class="amt" id="prevDep">50<span class="amt-suf">k</span></div>
+              </div>
+              <div class="card out out-has-value" id="prevOutCard">
+                <div class="card-bg" aria-hidden="true"></div>
+                <div class="icon-wrap">↑</div>
+                <span class="card-lbl">ВЫВОД</span>
+                <div class="amt" id="prevOut">12.5<span class="amt-suf">k</span></div>
+              </div>
+            </div>
+            <div class="likes-card">
+              <div class="card-bg" aria-hidden="true"></div>
+              <div class="likes-row">
+                <div class="likes-inner" style="display:inline-flex;align-items:center;gap:7px;max-width:100%;">
+                  <p class="likes-line" id="prevLikesLine">
+                    <span class="likes-lbl">ЦЕЛЬ:</span>
+                    <span class="likes-cur-part">120</span>/<span class="likes-goal-part">200</span>
+                  </p>
+                  <div class="likes-inline-thumb" aria-hidden="true" style="flex-shrink:0;width:calc(var(--ww-likes-font,40px)*1.05);height:calc(var(--ww-likes-font,40px)*1.05);display:grid;place-items:center;filter:drop-shadow(0 1px 3px rgba(0,0,0,.55));">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:92%;height:92%;display:block;">
+                      <defs>
+                        <linearGradient id="gYtThumbPrev" x1="4" y1="3" x2="20" y2="21" gradientUnits="userSpaceOnUse">
+                          <stop stop-color="#f8fafc"/>
+                          <stop offset="0.45" stop-color="#cbd5e1"/>
+                          <stop offset="1" stop-color="#94a3b8"/>
+                        </linearGradient>
+                        <linearGradient id="gYtCuffPrev" x1="1" y1="9" x2="5" y2="21" gradientUnits="userSpaceOnUse">
+                          <stop stop-color="#64748b"/>
+                          <stop offset="1" stop-color="#475569"/>
+                        </linearGradient>
+                      </defs>
+                      <path fill="url(#gYtCuffPrev)" d="M1 21h4V9H1v12z"/>
+                      <path fill="url(#gYtThumbPrev)" d="M23 10c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+              <div class="likes-track"><div class="likes-fill" id="prevLikesFill"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="preview-hint">Изменения сразу в превью. В OBS оверлей подхватит сохранённые настройки автоматически.</div>
+    </div>
+
+    <div class="settings-panel">
+      <div class="settings-header">Настройки виджета</div>
+      <div class="tabs">
+        <button type="button" class="tab active" data-tab="layout">Макет</button>
+        <button type="button" class="tab" data-tab="dep">Депозит</button>
+        <button type="button" class="tab" data-tab="out">Вывод</button>
+        <button type="button" class="tab" data-tab="likes">Лайки</button>
+        <button type="button" class="tab" data-tab="fx">Эффекты</button>
+      </div>
+      <div class="tab-contents">
+        <div class="tab-content active" id="tab-layout">
+          <div class="section-title">Карточки</div>
+          <div class="check-row"><input type="checkbox" id="show_dep" checked /><label for="show_dep">Показывать депозит</label></div>
+          <div class="check-row"><input type="checkbox" id="show_out" checked /><label for="show_out">Показывать вывод</label></div>
+          <div class="check-row"><input type="checkbox" id="show_likes" checked /><label for="show_likes">Показывать цель лайков</label></div>
+          <div class="field">
+            <label>Слева от суммы</label>
+            <select id="card_side_mode" style="width:100%;padding:8px 10px;border-radius:6px;border:1px solid #444;background:#2a2a2a;color:#eee;font-family:inherit;font-size:13px;">
+              <option value="icon">Иконки</option>
+              <option value="text">Текст</option>
+              <option value="none">Скрыть</option>
+            </select>
+          </div>
+          <div id="sideTextFields">
+            <div class="field"><label>Подпись депозита</label><input type="text" id="dep_label" value="ДЕП" maxlength="24" /></div>
+            <div class="field"><label>Подпись вывода</label><input type="text" id="out_label" value="ВЫВОД" maxlength="24" /></div>
+            <p style="font-size:12px;color:#777;margin:0 0 12px;">Размеры подписей и сумм — во вкладках «Депозит» и «Вывод».</p>
+          </div>
+          <div class="field"><label>Ширина карточки <span class="val" id="v_card_width">268</span></label><input type="range" id="card_width" min="160" max="480" value="268" /></div>
+          <div class="field"><label>Скругление <span class="val" id="v_card_radius">20</span></label><input type="range" id="card_radius" min="0" max="40" value="20" /></div>
+          <div class="field"><label>Отступ внутри Y <span class="val" id="v_card_padding_y">10</span></label><input type="range" id="card_padding_y" min="4" max="28" value="10" /></div>
+          <div class="field"><label>Отступ внутри X <span class="val" id="v_card_padding_x">13</span></label><input type="range" id="card_padding_x" min="4" max="36" value="13" /></div>
+          <div class="field"><label>Зазор между картами <span class="val" id="v_bar_gap">16</span></label><input type="range" id="bar_gap" min="0" max="48" value="16" /></div>
+          <div class="field"><label>Зазор до лайков <span class="val" id="v_stack_gap">13</span></label><input type="range" id="stack_gap" min="0" max="48" value="13" /></div>
+          <div class="field"><label>Размер иконки <span class="val" id="v_icon_size">56</span></label><input type="range" id="icon_size" min="32" max="96" value="56" /></div>
+          <div class="field"><label>Скругление иконки <span class="val" id="v_icon_radius">14</span></label><input type="range" id="icon_radius" min="0" max="40" value="14" /></div>
+          <div class="field"><label>Размер суммы <span class="val" id="v_amt_font_size">42</span></label><input type="range" id="amt_font_size" min="16" max="72" value="42" /></div>
+          <div class="section-title">Превью значения</div>
+          <div class="field"><label>Депозит</label><input type="text" id="preview_dep" value="50" /></div>
+          <div class="field"><label>Вывод</label><input type="text" id="preview_out" value="12.5" /></div>
+        </div>
+
+        <div class="tab-content" id="tab-dep">
+          <div class="field"><label>Размер подписи <span class="val" id="v_dep_label_font_size">32</span></label><input type="range" id="dep_label_font_size" min="10" max="56" value="32" /></div>
+          <div class="field"><label>Размер суммы <span class="val" id="v_dep_amt_font_size">42</span></label><input type="range" id="dep_amt_font_size" min="16" max="72" value="42" /></div>
+          <div class="field"><label>Цвет суммы</label><input type="color" id="dep_amt_color" value="#eef9ff" /></div>
+          <div class="field"><label>Цвет подписи</label><input type="color" id="dep_label_color" value="#7dd3fc" /></div>
+          <div class="field"><label>Цвет рамки</label><input type="color" id="dep_border_color" value="#bae6fd" /></div>
+          <div class="color-grid">
+            <div class="field"><label>Фон 1</label><input type="color" id="dep_bg_1" value="#2a4256" /></div>
+            <div class="field"><label>Фон 2</label><input type="color" id="dep_bg_2" value="#1a2e42" /></div>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tab-out">
+          <div class="field"><label>Размер подписи <span class="val" id="v_out_label_font_size">32</span></label><input type="range" id="out_label_font_size" min="10" max="56" value="32" /></div>
+          <div class="field"><label>Размер суммы <span class="val" id="v_out_amt_font_size">42</span></label><input type="range" id="out_amt_font_size" min="16" max="72" value="42" /></div>
+          <div class="section-title">Пустой / ноль</div>
+          <div class="field"><label>Цвет суммы</label><input type="color" id="out_empty_amt_color" value="#f0a0a0" /></div>
+          <div class="field"><label>Цвет подписи</label><input type="color" id="out_label_color" value="#f0a0a0" /></div>
+          <div class="field"><label>Рамка</label><input type="color" id="out_empty_border" value="#f87171" /></div>
+          <div class="color-grid">
+            <div class="field"><label>Фон 1</label><input type="color" id="out_empty_bg_1" value="#4d2228" /></div>
+            <div class="field"><label>Фон 2</label><input type="color" id="out_empty_bg_2" value="#32161b" /></div>
+          </div>
+          <div class="section-title">С суммой</div>
+          <div class="field"><label>Цвет суммы</label><input type="color" id="out_filled_amt_color" value="#4ade80" /></div>
+          <div class="field"><label>Цвет подписи</label><input type="color" id="out_filled_label_color" value="#86efac" /></div>
+          <div class="field"><label>Рамка</label><input type="color" id="out_filled_border" value="#4ade80" /></div>
+          <div class="color-grid">
+            <div class="field"><label>Фон 1</label><input type="color" id="out_filled_bg_1" value="#1a3024" /></div>
+            <div class="field"><label>Фон 2</label><input type="color" id="out_filled_bg_2" value="#102218" /></div>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tab-likes">
+          <div class="field"><label>Подпись</label><input type="text" id="likes_label" value="ЦЕЛЬ:" /></div>
+          <div class="field"><label>Размер шрифта <span class="val" id="v_likes_font_size">40</span></label><input type="range" id="likes_font_size" min="14" max="64" value="40" /></div>
+          <div class="field"><label>Скругление карточки <span class="val" id="v_likes_card_radius">18</span></label><input type="range" id="likes_card_radius" min="0" max="40" value="18" /></div>
+          <div class="field"><label>Цвет подписи</label><input type="color" id="likes_label_color" value="#c9a86e" /></div>
+          <div class="field"><label>Цвет текущего</label><input type="color" id="likes_cur_color" value="#fff8ee" /></div>
+          <div class="field"><label>Цвет цели</label><input type="color" id="likes_goal_color" value="#9a9288" /></div>
+          <div class="field"><label>Рамка</label><input type="color" id="likes_border_color" value="#d4af5f" /></div>
+          <div class="color-grid">
+            <div class="field"><label>Фон 1</label><input type="color" id="likes_bg_1" value="#2a2620" /></div>
+            <div class="field"><label>Фон 2</label><input type="color" id="likes_bg_2" value="#1a1713" /></div>
+            <div class="field"><label>Прогресс 1</label><input type="color" id="likes_fill_1" value="#d4af5f" /></div>
+            <div class="field"><label>Прогресс 2</label><input type="color" id="likes_fill_2" value="#f0d78c" /></div>
+          </div>
+          <div class="section-title">Превью</div>
+          <div class="field"><label>Текущие лайки</label><input type="text" id="preview_likes_cur" value="120" /></div>
+          <div class="field"><label>Цель</label><input type="text" id="preview_likes_goal" value="200" /></div>
+        </div>
+
+        <div class="tab-content" id="tab-fx">
+          <div class="section-title">Подложка деп / вывод</div>
+          <div class="check-row"><input type="checkbox" id="money_bg_enabled" checked /><label for="money_bg_enabled">Показывать подложку</label></div>
+          <div class="field"><label>Плотность <span class="val" id="v_money_bg_opacity">100</span>%</label><input type="range" id="money_bg_opacity" min="0" max="100" value="100" /></div>
+          <div class="section-title">Подложка цели лайков</div>
+          <div class="check-row"><input type="checkbox" id="likes_bg_enabled" checked /><label for="likes_bg_enabled">Показывать подложку</label></div>
+          <div class="field"><label>Плотность <span class="val" id="v_likes_bg_opacity">100</span>%</label><input type="range" id="likes_bg_opacity" min="0" max="100" value="100" /></div>
+          <div class="section-title">Эффекты</div>
+          <div class="check-row"><input type="checkbox" id="glow_enabled" checked /><label for="glow_enabled">Мягкое свечение (анимация)</label></div>
+        </div>
+      </div>
+      <div class="status-line" id="statusLine">Загрузка…</div>
+    </div>
+  </div>
+
+  <script src="/wallet/wallet_appearance.js?v=20260727f"></script>
+  <script>
+    const RANGE_KEYS = [
+      "card_width","card_radius","card_padding_y","card_padding_x","bar_gap","stack_gap",
+      "icon_size","icon_radius","amt_font_size",
+      "dep_label_font_size","out_label_font_size","dep_amt_font_size","out_amt_font_size",
+      "likes_font_size","likes_card_radius","money_bg_opacity","likes_bg_opacity"
+    ];
+    const BOOL_KEYS = ["show_dep","show_out","show_likes","glow_enabled","money_bg_enabled","likes_bg_enabled"];
+    const TEXT_KEYS = ["dep_label","out_label","likes_label","preview_dep","preview_out","preview_likes_cur","preview_likes_goal"];
+    const SELECT_KEYS = ["card_side_mode"];
+    const COLOR_KEYS = [
+      "dep_amt_color","dep_label_color","dep_border_color","dep_bg_1","dep_bg_2",
+      "out_empty_amt_color","out_label_color","out_empty_border","out_empty_bg_1","out_empty_bg_2",
+      "out_filled_amt_color","out_filled_label_color","out_filled_border","out_filled_bg_1","out_filled_bg_2",
+      "likes_label_color","likes_cur_color","likes_goal_color","likes_border_color",
+      "likes_bg_1","likes_bg_2","likes_fill_1","likes_fill_2"
+    ];
+    // color inputs need hex; rgba borders stored as hex approximations in UI
+    const RGBA_COLOR_MAP = {
+      dep_border_color: true,
+      out_empty_border: true,
+      out_filled_border: true,
+      likes_border_color: true
+    };
+
+    let settings = {};
+    let publicToken = "";
+    let dirty = false;
+
+    function setStatus(msg, kind) {
+      const el = document.getElementById("statusLine");
+      el.textContent = msg;
+      el.className = "status-line" + (kind ? " " + kind : "");
+    }
+
+    function toHexColor(c) {
+      if (!c) return "#ffffff";
+      c = String(c).trim();
+      if (c.startsWith("#") && (c.length === 7 || c.length === 4)) {
+        if (c.length === 4) return "#" + c[1]+c[1]+c[2]+c[2]+c[3]+c[3];
+        return c;
+      }
+      const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+      if (m) {
+        const h = (n) => Number(n).toString(16).padStart(2, "0");
+        return "#" + h(m[1]) + h(m[2]) + h(m[3]);
+      }
+      return "#ffffff";
+    }
+
+    function syncSideTextFields() {
+      const mode = (document.getElementById("card_side_mode") || {}).value || "icon";
+      const box = document.getElementById("sideTextFields");
+      if (box) box.style.display = mode === "text" ? "block" : "none";
+      const iconSize = document.getElementById("icon_size");
+      const iconRadius = document.getElementById("icon_radius");
+      const iconSizeField = iconSize && iconSize.closest(".field");
+      const iconRadiusField = iconRadius && iconRadius.closest(".field");
+      if (iconSizeField) iconSizeField.style.display = mode === "icon" ? "" : "none";
+      if (iconRadiusField) iconRadiusField.style.display = mode === "icon" ? "" : "none";
+    }
+
+    function readFormIntoSettings() {
+      RANGE_KEYS.forEach((k) => {
+        const el = document.getElementById(k);
+        if (el) settings[k] = parseInt(el.value, 10);
+      });
+      BOOL_KEYS.forEach((k) => {
+        const el = document.getElementById(k);
+        if (el) settings[k] = !!el.checked;
+      });
+      TEXT_KEYS.forEach((k) => {
+        const el = document.getElementById(k);
+        if (el) settings[k] = el.value;
+      });
+      SELECT_KEYS.forEach((k) => {
+        const el = document.getElementById(k);
+        if (el) settings[k] = el.value;
+      });
+      settings.show_icons = settings.card_side_mode === "icon";
+      if (settings.dep_label_font_size != null) {
+        settings.card_label_font_size = settings.dep_label_font_size;
+      }
+      if (settings.dep_amt_font_size != null) {
+        settings.amt_font_size = settings.dep_amt_font_size;
+      }
+      COLOR_KEYS.forEach((k) => {
+        const el = document.getElementById(k);
+        if (!el) return;
+        const hex = el.value;
+        if (RGBA_COLOR_MAP[k]) {
+          // keep slight transparency for borders
+          const r = parseInt(hex.slice(1,3),16);
+          const g = parseInt(hex.slice(3,5),16);
+          const b = parseInt(hex.slice(5,7),16);
+          const a = k.includes("filled") ? 0.32 : (k.includes("likes") ? 0.26 : 0.42);
+          settings[k] = `rgba(${r}, ${g}, ${b}, ${a})`;
+        } else {
+          settings[k] = hex;
+        }
+      });
+    }
+
+    function fillFormFromSettings() {
+      RANGE_KEYS.forEach((k) => {
+        const el = document.getElementById(k);
+        if (!el) return;
+        el.value = settings[k] ?? el.value;
+        const v = document.getElementById("v_" + k);
+        if (v) v.textContent = el.value;
+      });
+      BOOL_KEYS.forEach((k) => {
+        const el = document.getElementById(k);
+        if (el) el.checked = settings[k] !== false;
+      });
+      TEXT_KEYS.forEach((k) => {
+        const el = document.getElementById(k);
+        if (el && settings[k] != null) el.value = settings[k];
+      });
+      SELECT_KEYS.forEach((k) => {
+        const el = document.getElementById(k);
+        if (!el) return;
+        let mode = settings.card_side_mode;
+        if (mode !== "icon" && mode !== "text" && mode !== "none") {
+          mode = settings.show_icons === false ? "none" : "icon";
+        }
+        el.value = mode;
+      });
+      COLOR_KEYS.forEach((k) => {
+        const el = document.getElementById(k);
+        if (el && settings[k] != null) el.value = toHexColor(settings[k]);
+      });
+      document.querySelectorAll(".align-btn").forEach((b) => {
+        b.classList.toggle("active", b.dataset.align === (settings.align_h || "center"));
+      });
+      syncSideTextFields();
+    }
+
+    function trimThousands(x) {
+      return String(Math.round(Number(x) || 0));
+    }
+
+    function trimMillions(m) {
+      const t = Math.round((Number(m) || 0) * 100) / 100;
+      if (Math.abs(t - Math.round(t)) < 1e-9) return String(Math.round(t));
+      let s = t.toFixed(2);
+      if (s.endsWith("0") && !s.endsWith(".00")) s = s.slice(0, -1);
+      if (s.endsWith(".00")) s = s.slice(0, -3);
+      return s;
+    }
+
+    function parseRaw(str) {
+      const t = String(str == null ? "" : str).trim().replace(/\s/g, "").replace(",", ".");
+      if (!t || t === "." || t === "-") return null;
+      const n = Number(t);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    /** Как в оверлее: 50 → 50k, 1500 → 1.5kk */
+    function formatPreviewAmt(rawStr) {
+      const n = parseRaw(rawStr);
+      if (n === null) return "—";
+      const rub = Math.round(n) * 1000;
+      let numStr;
+      let suf;
+      if (rub < 1e6) {
+        numStr = trimThousands(rub / 1000);
+        suf = "k";
+      } else {
+        numStr = trimMillions(rub / 1e6);
+        suf = "kk";
+      }
+      return '<span class="amt-num">' + escapeHtml(numStr) + '</span><span class="amt-suf">' + suf + "</span>";
+    }
+
+    function updatePreview() {
+      try {
+        readFormIntoSettings();
+        const stack = document.getElementById("previewStack");
+        if (typeof applyWalletAppearance === "function") {
+          applyWalletAppearance(stack, settings);
+        }
+        document.getElementById("prevDep").innerHTML = formatPreviewAmt(settings.preview_dep);
+        const outRaw = String(settings.preview_out || "").trim();
+        const outNum = parseRaw(outRaw);
+        const outCard = document.getElementById("prevOutCard");
+        outCard.classList.toggle("out-has-value", outNum !== null && outNum > 0);
+        document.getElementById("prevOut").innerHTML = formatPreviewAmt(settings.preview_out);
+        const cur = settings.preview_likes_cur || "0";
+        const goal = settings.preview_likes_goal || "0";
+        document.getElementById("prevLikesLine").innerHTML =
+          '<span class="likes-lbl">' + escapeHtml(settings.likes_label || "ЦЕЛЬ:") + "</span> " +
+          '<span class="likes-cur-part">' + escapeHtml(cur) + "</span>/" +
+          '<span class="likes-goal-part">' + escapeHtml(goal) + "</span>";
+        const c = parseFloat(String(cur).replace(",", ".")) || 0;
+        const g = parseFloat(String(goal).replace(",", ".")) || 1;
+        document.getElementById("prevLikesFill").style.width = Math.max(0, Math.min(100, (c / g) * 100)) + "%";
+      } catch (e) {
+        console.error("updatePreview", e);
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    function markDirty() {
+      dirty = true;
+      const btn = document.getElementById("btnSave");
+      btn.classList.remove("saved");
+      btn.textContent = "Сохранить";
+      setStatus("Есть несохранённые изменения");
+      updatePreview();
+    }
+
+    function updatePreviewScale() {
+      const host = document.getElementById("scaleHost");
+      const vp = document.getElementById("viewport");
+      const pad = 48;
+      const aw = Math.max(200, host.clientWidth - pad);
+      const ah = Math.max(200, host.clientHeight - pad);
+      const scale = Math.min(1, aw / 1080, ah / 600);
+      vp.style.transform = "scale(" + scale + ")";
+      const wrap = vp.parentElement;
+      if (wrap && wrap !== host) {
+        wrap.style.width = (1080 * scale) + "px";
+        wrap.style.height = (600 * scale) + "px";
+      } else {
+        vp.style.marginBottom = ((600 * scale) - 600) + "px";
+      }
+    }
+
+    async function ensureAuth() {
+      try {
+        const res = await fetch("/api/auth/me", { credentials: "same-origin" });
+        if (res.status === 401) {
+          location.href = "/login?next=" + encodeURIComponent("/wallet/constructor");
+          return false;
+        }
+        if (!res.ok) throw new Error("auth " + res.status);
+        const me = await res.json();
+        publicToken = (me && me.user && me.user.public_token) || (me && me.public_token) || "";
+        return true;
+      } catch (e) {
+        setStatus("Не удалось проверить вход: " + e.message, "err");
+        return false;
+      }
+    }
+
+    async function loadSettings() {
+      const res = await fetch(walletSettingsUrl(publicToken), { credentials: "same-origin" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      settings = (data && data.settings) || data || {};
+      fillFormFromSettings();
+      updatePreview();
+      dirty = false;
+      setStatus("Загружено для аккаунта", "ok");
+    }
+
+    async function saveSettings() {
+      readFormIntoSettings();
+      const res = await fetch(walletSettingsUrl(publicToken), {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings }),
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      settings = (data && data.settings) || settings;
+      fillFormFromSettings();
+      updatePreview();
+      dirty = false;
+      const btn = document.getElementById("btnSave");
+      btn.classList.add("saved");
+      btn.textContent = "Сохранено";
+      setStatus("Сохранено. Оверлей обновится в течение нескольких секунд.", "ok");
+      setTimeout(() => {
+        if (!dirty) {
+          btn.classList.remove("saved");
+          btn.textContent = "Сохранить";
+        }
+      }, 2000);
+    }
+
+    async function resetSettings() {
+      if (!confirm("Сбросить внешний вид кошелька к значениям по умолчанию?")) return;
+      const res = await fetch(walletSettingsUrl(publicToken), {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reset: true }),
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      settings = (data && data.settings) || {};
+      fillFormFromSettings();
+      updatePreview();
+      dirty = false;
+      setStatus("Сброшено к умолчаниям", "ok");
+    }
+
+    function bindControls() {
+      document.querySelectorAll(".tab").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+          document.querySelectorAll(".tab-content").forEach((c) => c.classList.remove("active"));
+          btn.classList.add("active");
+          document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+        });
+      });
+      document.querySelectorAll(".align-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          settings.align_h = btn.dataset.align;
+          document.querySelectorAll(".align-btn").forEach((b) => b.classList.toggle("active", b === btn));
+          markDirty();
+        });
+      });
+      RANGE_KEYS.forEach((k) => {
+        const el = document.getElementById(k);
+        if (!el) return;
+        el.addEventListener("input", () => {
+          const v = document.getElementById("v_" + k);
+          if (v) v.textContent = el.value;
+        });
+      });
+      const panel = document.querySelector(".settings-panel");
+      if (panel) {
+        const onAny = (e) => {
+          const t = e.target;
+          if (!t || !t.id) return;
+          if (RANGE_KEYS.includes(t.id)) {
+            const v = document.getElementById("v_" + t.id);
+            if (v) v.textContent = t.value;
+          }
+          if (t.id === "card_side_mode") syncSideTextFields();
+          if (
+            RANGE_KEYS.includes(t.id) ||
+            BOOL_KEYS.includes(t.id) ||
+            TEXT_KEYS.includes(t.id) ||
+            COLOR_KEYS.includes(t.id) ||
+            SELECT_KEYS.includes(t.id)
+          ) {
+            markDirty();
+          }
+        };
+        panel.addEventListener("input", onAny);
+        panel.addEventListener("change", onAny);
+      }
+      syncSideTextFields();
+      document.getElementById("btnSave").addEventListener("click", () => {
+        saveSettings().catch((e) => setStatus("Ошибка сохранения: " + e.message, "err"));
+      });
+      document.getElementById("btnReset").addEventListener("click", () => {
+        resetSettings().catch((e) => setStatus("Ошибка сброса: " + e.message, "err"));
+      });
+      window.addEventListener("resize", updatePreviewScale);
+      window.addEventListener("beforeunload", (e) => {
+        if (dirty) { e.preventDefault(); e.returnValue = ""; }
+      });
+    }
+
+    (async function init() {
+      bindControls();
+      updatePreviewScale();
+      const ok = await ensureAuth();
+      if (!ok) return;
+      try {
+        await loadSettings();
+      } catch (e) {
+        setStatus("Ошибка загрузки: " + e.message, "err");
+        updatePreview();
+      }
+    })();
+  </script>
+</body>
+</html>

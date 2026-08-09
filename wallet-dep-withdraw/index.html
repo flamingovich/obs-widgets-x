@@ -7,7 +7,7 @@
   <style>
     @font-face {
       font-family: "Unbounded";
-      src: url("Unbounded-SemiBold.ttf") format("truetype");
+      src: url("/wallet/Unbounded-SemiBold.ttf") format("truetype");
       font-weight: 600;
       font-style: normal;
       font-display: swap;
@@ -37,11 +37,54 @@
     }
 
     /* ——— оверлей ——— */
+    .overlay-stack {
+      --ww-card-width: 268px;
+      --ww-card-radius: 20px;
+      --ww-card-pad-y: 10px;
+      --ww-card-pad-x: 13px;
+      --ww-bar-gap: 16px;
+      --ww-stack-gap: 13px;
+      --ww-icon-size: 56px;
+      --ww-icon-radius: 14px;
+      --ww-amt-font: 42px;
+      --ww-dep-amt-font: 42px;
+      --ww-out-amt-font: 42px;
+      --ww-card-lbl-font: 32px;
+      --ww-dep-lbl-font: 32px;
+      --ww-out-lbl-font: 32px;
+      --ww-likes-font: 40px;
+      --ww-likes-radius: 18px;
+      --ww-dep-amt: #eef9ff;
+      --ww-dep-lbl: #7dd3fc;
+      --ww-out-empty-amt: #f0a0a0;
+      --ww-out-filled-amt: #4ade80;
+      --ww-out-lbl: #f0a0a0;
+      --ww-out-filled-lbl: #86efac;
+      --ww-likes-lbl: #c9a86e;
+      --ww-likes-cur: #fff8ee;
+      --ww-likes-goal: #9a9288;
+      --ww-dep-border: rgba(186, 230, 253, 0.42);
+      --ww-dep-bg-1: #2a4256;
+      --ww-dep-bg-2: #1a2e42;
+      --ww-out-empty-border: rgba(248, 113, 113, 0.42);
+      --ww-out-empty-bg-1: #4d2228;
+      --ww-out-empty-bg-2: #32161b;
+      --ww-out-filled-border: rgba(74, 222, 128, 0.32);
+      --ww-out-filled-bg-1: #1a3024;
+      --ww-out-filled-bg-2: #102218;
+      --ww-likes-border: rgba(212, 175, 95, 0.26);
+      --ww-likes-bg-1: #2a2620;
+      --ww-likes-bg-2: #1a1713;
+      --ww-likes-fill-1: #d4af5f;
+      --ww-likes-fill-2: #f0d78c;
+      --ww-money-bg-opacity: 1;
+      --ww-likes-bg-opacity: 1;
+    }
     .bar {
       display: flex;
       align-items: stretch;
       flex-wrap: nowrap;
-      gap: 16px;
+      gap: var(--ww-bar-gap);
       padding: 6px;
       flex: 0 0 auto;
       max-width: 100%;
@@ -51,16 +94,37 @@
     .card {
       position: relative;
       overflow: hidden;
-      flex: 0 0 268px;
-      width: 268px;
+      flex: 0 0 var(--ww-card-width);
+      width: var(--ww-card-width);
       max-width: calc((100vw - 16px - 16px) / 2);
       min-width: 0;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 12px;
-      padding: 10px 13px;
-      border-radius: 20px;
+      padding: var(--ww-card-pad-y) var(--ww-card-pad-x);
+      border-radius: var(--ww-card-radius);
+      border: none;
+      background: transparent;
+      box-shadow: none;
+    }
+    /* Не трогать .card-bg — иначе absolute/inset ломается и подложка схлопывается */
+    .bar .card > *:not(.card-bg) {
+      position: relative;
+      z-index: 1;
+    }
+    .card-bg {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      overflow: hidden;
+      /* opacity задаётся inline из JS — в OBS CEF var() часто ломается */
+      opacity: 1;
+      transform: translateZ(0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
       border: 1px solid rgba(255, 255, 255, 0.1);
       background:
         radial-gradient(ellipse 140% 85% at 50% -35%, #23232b 0%, #1a1a20 55%),
@@ -70,20 +134,16 @@
         0 12px 40px rgba(0, 0, 0, 0.55),
         0 2px 0 rgba(255, 255, 255, 0.04) inset;
     }
-    .bar .card > * {
-      position: relative;
-      z-index: 1;
-    }
-    .card.dep {
-      border-color: rgba(186, 230, 253, 0.42);
-      background: linear-gradient(156deg, #2a4256 0%, #1f3548 48%, #1a2e42 100%);
+    .card.dep .card-bg {
+      border-color: var(--ww-dep-border);
+      background: linear-gradient(156deg, var(--ww-dep-bg-1) 0%, var(--ww-dep-bg-2) 100%);
       box-shadow:
         0 0 0 1px rgba(0, 0, 0, 0.35) inset,
         0 12px 40px rgba(0, 0, 0, 0.55),
         0 0 28px rgba(186, 230, 253, 0.18),
         0 2px 0 rgba(255, 255, 255, 0.04) inset;
     }
-    .card.dep::before {
+    .card.dep .card-bg::before {
       content: "";
       position: absolute;
       inset: -28%;
@@ -91,8 +151,8 @@
       border-radius: 28%;
       pointer-events: none;
       background:
-        radial-gradient(ellipse 125% 95% at 10% 6%, #3d5468 0%, #243848 45%, #1a2e42 54%),
-        radial-gradient(ellipse 95% 75% at 96% 94%, #2a4a5c 0%, #1a2e42 48%);
+        radial-gradient(ellipse 125% 95% at 10% 6%, var(--ww-dep-bg-1) 0%, var(--ww-dep-bg-2) 54%),
+        radial-gradient(ellipse 95% 75% at 96% 94%, var(--ww-dep-bg-1) 0%, var(--ww-dep-bg-2) 48%);
       animation: glowFade 18s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
       animation-delay: -4s;
     }
@@ -102,15 +162,17 @@
       --out-sign-ink: #7f1d1d;
       --out-wallet-body: #3d1a1e;
       --out-wallet-flap: #ffe8e8;
-      border-color: rgba(248, 113, 113, 0.42);
-      background: linear-gradient(204deg, #4d2228 0%, #3a1a1f 52%, #32161b 100%);
+    }
+    .card.out .card-bg {
+      border-color: var(--ww-out-empty-border);
+      background: linear-gradient(204deg, var(--ww-out-empty-bg-1) 0%, var(--ww-out-empty-bg-2) 100%);
       box-shadow:
         0 0 0 1px rgba(0, 0, 0, 0.35) inset,
         0 12px 40px rgba(0, 0, 0, 0.55),
         0 0 28px rgba(248, 113, 113, 0.18),
         0 2px 0 rgba(255, 255, 255, 0.04) inset;
     }
-    .card.out::before {
+    .card.out .card-bg::before {
       content: "";
       position: absolute;
       inset: -28%;
@@ -118,8 +180,8 @@
       border-radius: 28%;
       pointer-events: none;
       background:
-        radial-gradient(ellipse 125% 95% at 92% 8%, #5c3036 0%, #3a1a1f 45%, #32161b 54%),
-        radial-gradient(ellipse 95% 75% at 4% 92%, #4a252c 0%, #32161b 48%);
+        radial-gradient(ellipse 125% 95% at 92% 8%, var(--ww-out-empty-bg-1) 0%, var(--ww-out-empty-bg-2) 54%),
+        radial-gradient(ellipse 95% 75% at 4% 92%, var(--ww-out-empty-bg-1) 0%, var(--ww-out-empty-bg-2) 48%);
       animation: glowFade 23s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
       animation-delay: -11s;
     }
@@ -129,32 +191,68 @@
       --out-sign-ink: #14532d;
       --out-wallet-body: #1a3d2c;
       --out-wallet-flap: #d9f6e3;
-      border-color: rgba(74, 222, 128, 0.32);
-      background: linear-gradient(168deg, #1a3024 0%, #14261c 48%, #102218 100%);
+    }
+    .card.out.out-has-value .card-bg {
+      border-color: var(--ww-out-filled-border);
+      background: linear-gradient(168deg, var(--ww-out-filled-bg-1) 0%, var(--ww-out-filled-bg-2) 100%);
       box-shadow:
         0 0 0 1px rgba(0, 0, 0, 0.35) inset,
         0 12px 40px rgba(0, 0, 0, 0.55),
         0 0 28px rgba(74, 222, 128, 0.14),
         0 2px 0 rgba(255, 255, 255, 0.04) inset;
     }
-    .card.out.out-has-value::before {
+    .card.out.out-has-value .card-bg::before {
       background:
-        radial-gradient(ellipse 125% 95% at 92% 8%, #2a4534 0%, #162a1e 45%, #102218 54%),
-        radial-gradient(ellipse 95% 75% at 4% 92%, #1e3d2a 0%, #102218 48%);
+        radial-gradient(ellipse 125% 95% at 92% 8%, var(--ww-out-filled-bg-1) 0%, var(--ww-out-filled-bg-2) 54%),
+        radial-gradient(ellipse 95% 75% at 4% 92%, var(--ww-out-filled-bg-1) 0%, var(--ww-out-filled-bg-2) 48%);
     }
+    .overlay-stack.no-money-bg .card .card-bg { display: none; }
+    .overlay-stack.no-likes-bg .likes-card .card-bg { display: none; }
 
     .icon-wrap {
       flex-shrink: 0;
-      width: 56px;
-      height: 56px;
+      width: var(--ww-icon-size);
+      height: var(--ww-icon-size);
       display: grid;
       place-items: center;
-      border-radius: 14px;
+      border-radius: var(--ww-icon-radius);
       background: linear-gradient(160deg, #2e2e36 0%, #16161a 100%);
       border: 1px solid rgba(255, 255, 255, 0.12);
       box-shadow:
         0 4px 14px rgba(0, 0, 0, 0.45) inset,
         0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+    .overlay-stack.hide-icons .icon-wrap,
+    .overlay-stack.side-none .icon-wrap,
+    .overlay-stack.side-text .icon-wrap { display: none; }
+    .overlay-stack.side-none .card-lbl { display: none !important; }
+    .card-lbl {
+      display: none;
+      flex-shrink: 1;
+      min-width: 0;
+      max-width: none;
+      overflow: visible;
+      white-space: nowrap;
+      font-size: var(--ww-card-lbl-font);
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      line-height: 1.1;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+    }
+    .overlay-stack.side-text .card-lbl { display: inline-block; }
+    .card.dep .card-lbl {
+      color: var(--ww-dep-lbl);
+      font-size: var(--ww-dep-lbl-font, var(--ww-card-lbl-font));
+    }
+    .card.out .card-lbl {
+      color: var(--ww-out-lbl);
+      font-size: var(--ww-out-lbl-font, var(--ww-card-lbl-font));
+    }
+    .card.out.out-has-value .card-lbl { color: var(--ww-out-filled-lbl); }
+    .overlay-stack.no-glow .card-bg::before,
+    .overlay-stack.no-glow .likes-card .card-bg::before {
+      animation: none !important;
+      filter: brightness(0.9);
     }
     .card.dep .icon-wrap {
       border-color: rgba(56, 189, 248, 0.45);
@@ -196,7 +294,7 @@
     .amt {
       display: inline-block;
       white-space: nowrap;
-      font-size: 42px;
+      font-size: var(--ww-amt-font);
       font-weight: 600;
       letter-spacing: 0.02em;
       font-variant-numeric: tabular-nums;
@@ -207,19 +305,21 @@
         0 0 14px rgba(0, 0, 0, 0.55);
     }
     .card.dep .amt {
-      color: #eef9ff;
+      font-size: var(--ww-dep-amt-font, var(--ww-amt-font));
+      color: var(--ww-dep-amt);
       text-shadow:
         0 1px 2px rgba(0, 0, 0, 0.9),
         0 0 20px rgba(125, 211, 252, 0.35);
     }
     .card.out .amt {
-      color: #f0a0a0;
+      font-size: var(--ww-out-amt-font, var(--ww-amt-font));
+      color: var(--ww-out-empty-amt);
       text-shadow:
         0 1px 2px rgba(0, 0, 0, 0.9),
         0 0 18px rgba(239, 68, 68, 0.22);
     }
     .card.out.out-has-value .amt {
-      color: #4ade80;
+      color: var(--ww-out-filled-amt);
       text-shadow:
         0 1px 2px rgba(0, 0, 0, 0.9),
         0 0 20px rgba(74, 222, 128, 0.32);
@@ -237,10 +337,18 @@
       letter-spacing: 0;
       text-shadow: none;
     }
-    /* Плавные циклы: только opacity, два полюса + симметричный easing (без transform / filter). */
+    /* Свечение: без opacity — иначе в OBS конфликтует с прозрачностью подложки */
     @keyframes glowFade {
-      0%, 100% { opacity: 0.72; }
-      50% { opacity: 1; }
+      0%, 100% { filter: brightness(0.88); }
+      50% { filter: brightness(1.08); }
+    }
+    @keyframes textSoft {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.86; }
+    }
+    @keyframes likesRowSoft {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.91; }
     }
     @keyframes textSoft {
       0%, 100% { opacity: 1; }
@@ -277,7 +385,7 @@
       display: none;
       flex-direction: column;
       align-items: stretch;
-      gap: 13px;
+      gap: var(--ww-stack-gap);
       max-width: 100%;
     }
     body.mode-overlay .overlay-stack {
@@ -289,21 +397,36 @@
       overflow: hidden;
       flex: 0 0 auto;
       padding: 11px 14px 13px;
-      border-radius: 18px;
-      border: 1px solid rgba(212, 175, 95, 0.26);
-      background: linear-gradient(172deg, #2a2620 0%, #1f1c17 45%, #1a1713 100%);
+      border-radius: var(--ww-likes-radius);
+      border: none;
+      background: transparent;
+      box-shadow: none;
+    }
+    .likes-card > *:not(.card-bg) {
+      position: relative;
+      z-index: 1;
+    }
+    .likes-card .card-bg {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      overflow: hidden;
+      opacity: 1;
+      transform: translateZ(0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      border: 1px solid var(--ww-likes-border);
+      background: linear-gradient(172deg, var(--ww-likes-bg-1) 0%, var(--ww-likes-bg-2) 100%);
       box-shadow:
         0 0 0 1px rgba(0, 0, 0, 0.35) inset,
         0 12px 40px rgba(0, 0, 0, 0.55),
         0 0 20px rgba(212, 165, 80, 0.08),
         0 2px 0 rgba(255, 255, 255, 0.04) inset;
     }
-    .likes-card > * {
-      position: relative;
-      z-index: 1;
-    }
-    .card::after,
-    .likes-card::after {
+    .card .card-bg::after,
+    .likes-card .card-bg::after {
       content: "";
       position: absolute;
       inset: 0;
@@ -315,7 +438,7 @@
         radial-gradient(circle at 78% 65%, rgba(255, 255, 255, 0.75) 0.45px, transparent 1px);
       background-size: 3px 3px, 4px 4px;
     }
-    .likes-card::before {
+    .likes-card .card-bg::before {
       content: "";
       position: absolute;
       inset: -30%;
@@ -330,7 +453,7 @@
       animation-delay: -7s;
     }
     .likes-row {
-      --likes-font: 40px;
+      --likes-font: var(--ww-likes-font);
       display: flex;
       justify-content: center;
       align-items: center;
@@ -362,18 +485,18 @@
       text-shadow: 0 1px 2px rgba(0, 0, 0, 0.82);
     }
     .likes-line .likes-lbl {
-      color: #c9a86e;
+      color: var(--ww-likes-lbl);
       letter-spacing: 0.12em;
       font-size: 0.76em;
       font-weight: 600;
       display: inline-block;
     }
     .likes-line .likes-cur-part {
-      color: #fff8ee;
+      color: var(--ww-likes-cur);
       display: inline-block;
     }
     .likes-line .likes-goal-part {
-      color: #9a9288;
+      color: var(--ww-likes-goal);
       display: inline-block;
     }
     .likes-inline-thumb {
@@ -402,7 +525,7 @@
       width: 0%;
       max-width: 100%;
       border-radius: 999px;
-      background: linear-gradient(90deg, #a67c2c, #d4a84b, #e8c06a);
+      background: linear-gradient(90deg, var(--ww-likes-fill-1), var(--ww-likes-fill-2));
       box-shadow: 0 0 10px rgba(212, 160, 60, 0.4);
       transition: width 0.35s ease;
     }
@@ -546,6 +669,25 @@
     .dock-head p {
       display: none;
     }
+    .dock-currency-select {
+      flex: 0 0 48px;
+      width: 48px;
+      min-width: 48px;
+      height: auto;
+      min-height: 34px;
+      padding: 0 4px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 9px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(0, 0, 0, 0.28);
+      color: #ececf1;
+      font-family: inherit;
+      cursor: pointer;
+      text-align: center;
+    }
+    .dock-currency-select.dep { border-color: rgba(56, 189, 248, 0.35); color: #bae6fd; }
+    .dock-currency-select.out { border-color: rgba(248, 113, 113, 0.35); color: #fecaca; }
 
     .dock .field {
       margin-bottom: 0;
@@ -654,6 +796,7 @@
   <div class="overlay-stack">
   <div class="bar">
     <div class="card dep">
+      <div class="card-bg" aria-hidden="true"></div>
       <div class="icon-wrap" aria-hidden="true">
         <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
@@ -674,11 +817,13 @@
           <path d="M24 15h16" stroke="#075985" stroke-width="4.2" stroke-linecap="round"/>
         </svg>
       </div>
+      <span class="card-lbl">ДЕП</span>
       <div class="amt-wrap">
         <span id="depDisp" class="amt" aria-live="polite"></span>
       </div>
     </div>
     <div class="card out" id="outCard">
+      <div class="card-bg" aria-hidden="true"></div>
       <div class="icon-wrap" aria-hidden="true">
         <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
@@ -698,6 +843,7 @@
           <path d="M24 15h16M32 7v16" stroke="var(--out-sign-ink)" stroke-width="4.2" stroke-linecap="round"/>
         </svg>
       </div>
+      <span class="card-lbl">ВЫВОД</span>
       <div class="amt-wrap">
         <span id="outDisp" class="amt" aria-live="polite"></span>
       </div>
@@ -705,6 +851,7 @@
   </div>
 
   <div class="likes-card">
+    <div class="card-bg" aria-hidden="true"></div>
     <div class="likes-row" id="likesNums">
       <div class="likes-inner">
       <p id="likesLine" class="likes-line" aria-live="polite"></p>
@@ -750,6 +897,10 @@
       <div class="dock-money-line">
         <input id="depIn" class="dock-m-val" type="text" inputmode="decimal" placeholder="100" spellcheck="false" autocomplete="off" />
         <input id="depPlus" class="dock-m-plus" type="text" inputmode="decimal" placeholder="50" spellcheck="false" autocomplete="off" />
+        <select id="depCurrency" class="dock-currency-select dep" aria-label="Валюта депозита">
+          <option value="RUB">₽</option>
+          <option value="USD">$</option>
+        </select>
         <button type="button" class="dock-chip dep" id="depPlusBtn">+</button>
       </div>
     </div>
@@ -758,6 +909,10 @@
       <div class="dock-money-line">
         <input id="outIn" class="dock-m-val" type="text" inputmode="decimal" placeholder="7777" spellcheck="false" autocomplete="off" />
         <input id="outPlus" class="dock-m-plus" type="text" inputmode="decimal" placeholder="50" spellcheck="false" autocomplete="off" />
+        <select id="outCurrency" class="dock-currency-select out" aria-label="Валюта вывода">
+          <option value="RUB">₽</option>
+          <option value="USD">$</option>
+        </select>
         <button type="button" class="dock-chip out" id="outPlusBtn">+</button>
       </div>
     </div>
@@ -779,49 +934,102 @@
     </div>
   </div>
 
+  <script src="/wallet/wallet_appearance.js?v=20260727f"></script>
   <script>
-    const K = {
+    const K_BASE = {
       dep: "obs_wallet_dep",
       out: "obs_wallet_out",
       yt: "obs_wallet_yt_url",
       goal: "obs_wallet_like_goal",
       bridge: "obs_wallet_bridge_url",
       hideLikes: "obs_wallet_hide_likes",
+      depCurrency: "obs_wallet_dep_currency",
+      outCurrency: "obs_wallet_out_currency",
     };
-    const K_META = "obs_wallet_yt_meta_v1";
-    const DEFAULT_BRIDGE = "http://127.0.0.1:8766";
+    const tokenScope = (new URLSearchParams(location.search).get("token") || "").trim();
+    const scopeSuffix = tokenScope ? ("__" + tokenScope) : "";
+    const K = Object.fromEntries(Object.entries(K_BASE).map(([k, v]) => [k, v + scopeSuffix]));
+    const K_META = "obs_wallet_yt_meta_v1" + scopeSuffix;
+    const DEFAULT_BRIDGE = "";
+    let serverUpdatedAt = 0;
+    let pushTimer = null;
+    let pushing = false;
+    let appearanceSettings = { likes_label: "ЦЕЛЬ:" };
+    let fxUsdRub = null;
+    let fxUpdatedAt = 0;
+    let fxPollTimer = null;
+
+    function normalizeCurrency(raw, fallback) {
+      const s = String(raw || fallback || "RUB").trim().toUpperCase();
+      return s === "USD" || s === "$" ? "USD" : "RUB";
+    }
+
+    function readCurrencySettings() {
+      try {
+        return {
+          dep: normalizeCurrency(localStorage.getItem(K.depCurrency), "RUB"),
+          out: normalizeCurrency(localStorage.getItem(K.outCurrency), "RUB"),
+        };
+      } catch (_) {
+        return { dep: "RUB", out: "RUB" };
+      }
+    }
+
+    function writeCurrency(which, code) {
+      const cur = normalizeCurrency(code, "RUB");
+      const key = which === "dep" ? K.depCurrency : K.outCurrency;
+      try { localStorage.setItem(key, cur); } catch (_) {}
+      scheduleServerPush();
+      syncCurrencyUi();
+    }
+
+    function fxApiUrl() {
+      const base = bridgeBase(readYtSettings().bridge);
+      const u = new URL("/wallet/fx", base.endsWith("/") ? base : base + "/");
+      if (tokenScope) u.searchParams.set("token", tokenScope);
+      return u.href;
+    }
+
+    async function refreshFxRate() {
+      try {
+        const res = await fetch(fxApiUrl(), { cache: "no-store" });
+        const data = await res.json();
+        if (!data || !data.ok || !Number.isFinite(data.usd_rub)) throw new Error("bad fx");
+        fxUsdRub = Number(data.usd_rub);
+        fxUpdatedAt = data.updated_at || Date.now();
+      } catch (_) {}
+    }
+
+    function syncCurrencyUi() {
+      const cur = readCurrencySettings();
+      if (depCurrency) depCurrency.value = cur.dep;
+      if (outCurrency) outCurrency.value = cur.out;
+      if (depPlus) depPlus.placeholder = cur.dep === "USD" ? "1000" : "50";
+      if (outPlus) outPlus.placeholder = cur.out === "USD" ? "1000" : "50";
+    }
+
+    /** Сумма из поля «+» → тысячи рублей для хранения. */
+    function plusToStorageThousands(amount, currency) {
+      if (currency === "USD") {
+        if (!fxUsdRub || fxUsdRub <= 0) return null;
+        return (amount * fxUsdRub) / 1000;
+      }
+      return amount;
+    }
 
     function bridgeBase(bridge) {
-      let b = (bridge || DEFAULT_BRIDGE).trim().replace(/\/$/, "");
+      let b = (bridge || DEFAULT_BRIDGE || location.origin).trim().replace(/\/$/, "");
+      if (!b) b = location.origin;
       if (!/^https?:\/\//i.test(b)) b = "http://" + b.replace(/^\/+/, "");
       return b;
     }
-    const q = new URLSearchParams(location.search);
-    const dockMode = q.has("dock") || location.hash === "#dock";
-    document.body.classList.add(dockMode ? "mode-dock" : "mode-overlay");
 
-    const depDisp = document.getElementById("depDisp");
-    const outDisp = document.getElementById("outDisp");
-    const depIn = document.getElementById("depIn");
-    const outIn = document.getElementById("outIn");
-    const ytUrl = document.getElementById("ytUrl");
-    const likeGoal = document.getElementById("likeGoal");
-    const bridgeUrl = document.getElementById("bridgeUrl");
-    const depPlus = document.getElementById("depPlus");
-    const outPlus = document.getElementById("outPlus");
-    const depPlusBtn = document.getElementById("depPlusBtn");
-    const outPlusBtn = document.getElementById("outPlusBtn");
-    const likesLine = document.getElementById("likesLine");
-    const likesFill = document.getElementById("likesFill");
-    const likesErr = document.getElementById("likesErr");
-    const likesNums = document.getElementById("likesNums");
-    const likesDisp = { cur: "—", goal: "0" };
-    const cards = () => document.querySelectorAll(".bar .card");
-    const ytChannelBar = document.getElementById("ytChannelBar");
-    const ytChName = document.getElementById("ytChName");
-    const outCard = document.getElementById("outCard");
-    const hideLikesBtn = document.getElementById("hideLikesBtn");
-    let channelMetaTimer = null;
+    function stateApiUrl() {
+      const base = bridgeBase(readYtSettings().bridge);
+      const u = new URL("/wallet/state", base.endsWith("/") ? base : base + "/");
+      if (tokenScope) u.searchParams.set("token", tokenScope);
+      return u.href;
+    }
 
     function readStore() {
       try {
@@ -840,16 +1048,154 @@
         return {
           yt: localStorage.getItem(K.yt) || "",
           goal: localStorage.getItem(K.goal) || "",
-          bridge: b && b.trim() ? b : DEFAULT_BRIDGE,
+          bridge: b && b.trim() ? b : (DEFAULT_BRIDGE || location.origin),
         };
       } catch (_) {
-        return { yt: "", goal: "", bridge: DEFAULT_BRIDGE };
+        return { yt: "", goal: "", bridge: location.origin };
       }
     }
 
-    function writeStore(key, val) {
+    function writeStore(key, val, opts) {
       try { localStorage.setItem(K[key], val); } catch (_) {}
+      if (!opts || opts.push !== false) scheduleServerPush();
     }
+
+    function likesGoalHidden() {
+      try {
+        return localStorage.getItem(K.hideLikes) === "1";
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function setHideLikes(hidden, opts) {
+      try {
+        if (hidden) localStorage.setItem(K.hideLikes, "1");
+        else localStorage.removeItem(K.hideLikes);
+      } catch (_) {}
+      if (!opts || opts.push !== false) scheduleServerPush();
+    }
+
+    function collectServerPayload() {
+      const y = readYtSettings();
+      const s = readStore();
+      const cur = readCurrencySettings();
+      return {
+        dep: s.dep,
+        out: s.out,
+        yt: y.yt,
+        goal: y.goal,
+        hideLikes: likesGoalHidden(),
+        dep_currency: cur.dep,
+        out_currency: cur.out,
+      };
+    }
+
+    function applyServerState(state, opts) {
+      if (!state || typeof state !== "object") return;
+      const silent = { push: false };
+      if ("dep" in state) {
+        try { localStorage.setItem(K.dep, String(state.dep ?? "")); } catch (_) {}
+      }
+      if ("out" in state) {
+        try { localStorage.setItem(K.out, String(state.out ?? "")); } catch (_) {}
+      }
+      if ("yt" in state) {
+        try { localStorage.setItem(K.yt, String(state.yt ?? "")); } catch (_) {}
+      }
+      if ("goal" in state) {
+        try { localStorage.setItem(K.goal, String(state.goal ?? "")); } catch (_) {}
+      }
+      if ("dep_currency" in state) {
+        try { localStorage.setItem(K.depCurrency, normalizeCurrency(state.dep_currency)); } catch (_) {}
+      }
+      if ("out_currency" in state) {
+        try { localStorage.setItem(K.outCurrency, normalizeCurrency(state.out_currency)); } catch (_) {}
+      }
+      if ("hideLikes" in state) {
+        setHideLikes(!!state.hideLikes, silent);
+      }
+      if (typeof state.updated_at === "number") serverUpdatedAt = state.updated_at;
+      if (opts && opts.paint === false) return;
+      if (dockMode) {
+        paintDock();
+        syncHideLikesBtnLabel();
+        scheduleChannelMeta();
+      } else {
+        paintOverlay();
+        fetchLikesOnce();
+      }
+    }
+
+    function scheduleServerPush() {
+      clearTimeout(pushTimer);
+      pushTimer = setTimeout(pushServerState, 120);
+    }
+
+    async function pushServerState() {
+      if (pushing) {
+        scheduleServerPush();
+        return;
+      }
+      pushing = true;
+      try {
+        const res = await fetch(stateApiUrl(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(collectServerPayload()),
+          cache: "no-store",
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data && data.state && typeof data.state.updated_at === "number") {
+          serverUpdatedAt = data.state.updated_at;
+        }
+      } catch (_) {
+        // offline / bridge down — local cache still works in same CEF context
+      } finally {
+        pushing = false;
+      }
+    }
+
+    async function pullServerState() {
+      try {
+        const res = await fetch(stateApiUrl(), { cache: "no-store" });
+        const data = await res.json();
+        if (!data || !data.ok || !data.state) return;
+        if (typeof data.state.updated_at === "number" && data.state.updated_at <= serverUpdatedAt) {
+          return;
+        }
+        applyServerState(data.state);
+      } catch (_) {}
+    }
+
+    const q = new URLSearchParams(location.search);
+    const dockMode = q.has("dock") || location.hash === "#dock";
+    document.body.classList.add(dockMode ? "mode-dock" : "mode-overlay");
+
+    const depDisp = document.getElementById("depDisp");
+    const outDisp = document.getElementById("outDisp");
+    const depIn = document.getElementById("depIn");
+    const outIn = document.getElementById("outIn");
+    const ytUrl = document.getElementById("ytUrl");
+    const likeGoal = document.getElementById("likeGoal");
+    const bridgeUrl = document.getElementById("bridgeUrl");
+    const depPlus = document.getElementById("depPlus");
+    const outPlus = document.getElementById("outPlus");
+    const depPlusBtn = document.getElementById("depPlusBtn");
+    const outPlusBtn = document.getElementById("outPlusBtn");
+    const depCurrency = document.getElementById("depCurrency");
+    const outCurrency = document.getElementById("outCurrency");
+    const likesLine = document.getElementById("likesLine");
+    const likesFill = document.getElementById("likesFill");
+    const likesErr = document.getElementById("likesErr");
+    const likesNums = document.getElementById("likesNums");
+    const likesDisp = { cur: "—", goal: "0" };
+    const cards = () => document.querySelectorAll(".bar .card");
+    const ytChannelBar = document.getElementById("ytChannelBar");
+    const ytChName = document.getElementById("ytChName");
+    const outCard = document.getElementById("outCard");
+    const hideLikesBtn = document.getElementById("hideLikesBtn");
+    let channelMetaTimer = null;
 
     function loadMetaCache() {
       try {
@@ -926,25 +1272,23 @@
     }
 
     function trimThousands(x) {
-      const r = Math.round(x * 1e6) / 1e6;
-      if (Number.isInteger(r) || Math.abs(r - Math.round(r)) < 1e-6) return String(Math.round(r));
-      let s = r.toFixed(2).replace(/\.?0+$/, "");
-      return s;
+      return String(Math.round(Number(x) || 0));
     }
 
     function trimMillions(m) {
-      const t = Math.trunc(m * 100) / 100;
+      const t = Math.round((Number(m) || 0) * 100) / 100;
+      if (Math.abs(t - Math.round(t)) < 1e-9) return String(Math.round(t));
       let s = t.toFixed(2);
+      if (s.endsWith("0") && !s.endsWith(".00")) s = s.slice(0, -1);
       if (s.endsWith(".00")) s = s.slice(0, -3);
-      else if (s.endsWith("0")) s = s.slice(0, -1);
       return s;
     }
 
-    /** Сырое число = тысячи рублей: 777 → 777K, 7777 → 7.77KK */
+    /** Сырое число = тысячи рублей: 777 → 777k, 1500 → 1.5kk */
     function formatDisplay(rawStr) {
       const n = parseRaw(rawStr);
       if (n === null) return "";
-      const rub = n * 1000;
+      const rub = Math.round(n) * 1000;
       if (rub < 1e6) return trimThousands(rub / 1000) + "K";
       return trimMillions(rub / 1e6) + "KK";
     }
@@ -958,7 +1302,7 @@
           .replace(/"/g, "&quot;");
       const n = parseRaw(rawStr);
       if (n === null) return "";
-      const rub = n * 1000;
+      const rub = Math.round(n) * 1000;
       let numStr;
       let suf;
       if (rub < 1e6) {
@@ -975,16 +1319,13 @@
 
     function formatStoredNum(n) {
       if (!Number.isFinite(n)) return "0";
-      return trimThousands(n);
+      return String(Math.round(n));
     }
 
-    /** Дробная часть в анимации только если в сохранённой строке есть значащие десятые (например 7.77kk). */
+    /** Дробь в анимации только для зоны kk (от 1000 тысяч = 1kk). */
     function storedUsesFractionalThousands(rawStr) {
-      const t = String(rawStr).trim().replace(/\s/g, "").replace(",", ".");
-      if (!t || t === "." || t === "-") return false;
-      if (!t.includes(".")) return false;
-      const n = Number(t);
-      return Number.isFinite(n) && Math.abs(n - Math.round(n)) > 1e-6;
+      const n = parseRaw(rawStr);
+      return n !== null && Math.abs(n) >= 1000;
     }
 
     const amtAnim = {
@@ -1117,14 +1458,22 @@
     function applyPlus(which) {
       const inp = which === "dep" ? depIn : outIn;
       const plus = which === "dep" ? depPlus : outPlus;
+      const cur = readCurrencySettings();
+      const currency = which === "dep" ? cur.dep : cur.out;
       const d = parseRaw(plus.value);
       if (d === null) return;
+      const addK = plusToStorageThousands(d, currency);
+      if (addK === null) {
+        refreshFxRate();
+        return;
+      }
       const base = parseRaw(inp.value);
-      const sum = (base || 0) + d;
+      const sum = (base || 0) + addK;
       const s = formatStoredNum(sum);
       writeStore(which, s);
       inp.value = s;
       plus.value = "";
+      syncCurrencyUi();
     }
 
     function fitCard(card) {
@@ -1163,14 +1512,6 @@
       outCard.classList.toggle("out-has-value", n !== null && n > 0);
     }
 
-    function likesGoalHidden() {
-      try {
-        return localStorage.getItem(K.hideLikes) === "1";
-      } catch (_) {
-        return false;
-      }
-    }
-
     function applyLikesCardVisibility() {
       const el = document.querySelector(".likes-card");
       if (!el) return;
@@ -1194,14 +1535,31 @@
 
     function paintLikesLineHtml() {
       if (!likesLine) return;
+      const lbl = (appearanceSettings && appearanceSettings.likes_label) || "ЦЕЛЬ:";
       likesLine.innerHTML =
-        '<span class="likes-lbl">ЦЕЛЬ:</span> ' +
+        '<span class="likes-lbl">' +
+        escapeHtml(lbl) +
+        "</span> " +
         '<span class="likes-cur-part">' +
         escapeHtml(likesDisp.cur) +
         "</span>/<span class=\"likes-goal-part\">" +
         escapeHtml(likesDisp.goal) +
         "</span>";
       fitLikesRow();
+    }
+
+    async function loadAppearanceSettings() {
+      const stack = document.querySelector(".overlay-stack");
+      if (!stack || typeof fetchWalletAppearance !== "function") return;
+      try {
+        const s = await fetchWalletAppearance(tokenScope);
+        if (s && typeof s === "object") {
+          appearanceSettings = s;
+          applyWalletAppearance(stack, s);
+          paintLikesLineHtml();
+          fitOverlayAmts();
+        }
+      } catch (_) {}
     }
 
     function escapeHtml(s) {
@@ -1292,11 +1650,20 @@
       ytUrl.value = y.yt;
       likeGoal.value = y.goal;
       bridgeUrl.value = y.bridge || DEFAULT_BRIDGE;
+      syncCurrencyUi();
     }
 
     if (dockMode) {
       paintDock();
+      refreshFxRate();
+      fxPollTimer = setInterval(refreshFxRate, 5 * 60 * 1000);
       refreshChannelMeta();
+      if (depCurrency) {
+        depCurrency.addEventListener("change", () => writeCurrency("dep", depCurrency.value));
+      }
+      if (outCurrency) {
+        outCurrency.addEventListener("change", () => writeCurrency("out", outCurrency.value));
+      }
       depIn.addEventListener("input", () => writeStore("dep", depIn.value));
       outIn.addEventListener("input", () => writeStore("out", outIn.value));
       ytUrl.addEventListener("input", () => {
@@ -1305,7 +1672,7 @@
       });
       likeGoal.addEventListener("input", () => writeStore("goal", likeGoal.value));
       bridgeUrl.addEventListener("input", () => {
-        writeStore("bridge", bridgeUrl.value);
+        writeStore("bridge", bridgeUrl.value, { push: false });
         scheduleChannelMeta();
       });
       depPlusBtn.addEventListener("click", () => applyPlus("dep"));
@@ -1322,51 +1689,27 @@
           applyPlus("out");
         }
       });
-      window.addEventListener("storage", (e) => {
-        if (e.key === K.dep) depIn.value = e.newValue || "";
-        if (e.key === K.out) outIn.value = e.newValue || "";
-        if (e.key === K.yt) {
-          ytUrl.value = e.newValue || "";
-          scheduleChannelMeta();
-        }
-        if (e.key === K.goal) likeGoal.value = e.newValue || "";
-        if (e.key === K.hideLikes) syncHideLikesBtnLabel();
-        if (e.key === K.bridge) {
-          bridgeUrl.value = e.newValue || DEFAULT_BRIDGE;
-          scheduleChannelMeta();
-        }
-      });
       syncHideLikesBtnLabel();
       if (hideLikesBtn) {
         hideLikesBtn.addEventListener("click", () => {
-          try {
-            if (likesGoalHidden()) localStorage.removeItem(K.hideLikes);
-            else localStorage.setItem(K.hideLikes, "1");
-          } catch (_) {}
+          setHideLikes(!likesGoalHidden());
           syncHideLikesBtnLabel();
         });
       }
-      setInterval(() => {
-        paintDock();
-        syncHideLikesBtnLabel();
-      }, 1000);
+      pullServerState().then(() => {
+        // если на сервере пусто, а в доке уже есть значения — запушим
+        const s = collectServerPayload();
+        if (s.dep || s.out || s.yt || s.goal) scheduleServerPush();
+      });
+      setInterval(pullServerState, 500);
     } else {
       paintOverlay();
+      loadAppearanceSettings();
+      setInterval(loadAppearanceSettings, 5000);
       fetchLikesOnce();
       likesPollTimer = setInterval(fetchLikesOnce, 15000);
-      window.addEventListener("storage", (e) => {
-        if (e.key === K.dep) applyAmtWithAnim("dep", depDisp);
-        if (e.key === K.out) {
-          applyAmtWithAnim("out", outDisp);
-          syncOutCardFromRaw(e.newValue || "");
-        }
-        if (e.key === K.hideLikes) applyLikesCardVisibility();
-        if (e.key === K.yt || e.key === K.goal || e.key === K.bridge) {
-          paintLikesGoalOnly();
-          fetchLikesOnce();
-        }
-        fitOverlayAmts();
-      });
+      pullServerState();
+      setInterval(pullServerState, 500);
       setInterval(paintOverlay, 800);
       window.addEventListener("resize", () => {
         fitOverlayAmts();

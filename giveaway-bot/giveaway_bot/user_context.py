@@ -24,6 +24,7 @@ GIVEAWAY_TEMPLATE = {
     "winner_first_message_at": None,
     "is_active": False,
     "is_connected": False,
+    "chat_reconnecting": False,
     "countdown": 0,
     "is_test_mode": False,
     "test_participant_seq": 0,
@@ -32,6 +33,7 @@ GIVEAWAY_TEMPLATE = {
 _giveaways: dict[int, dict] = {}
 _chat_threads: dict[int, threading.Thread | None] = {}
 _stop_flags: dict[int, threading.Event] = {}
+_chat_sessions: dict[int, int] = {}
 _ctx_lock = threading.Lock()
 
 
@@ -75,13 +77,19 @@ def get_giveaway() -> dict:
 
 
 def get_chat_thread() -> threading.Thread | None:
-    uid = get_user_id()
-    return _chat_threads.get(uid)
+    return get_chat_thread_for_user(get_user_id())
+
+
+def get_chat_thread_for_user(user_id: int) -> threading.Thread | None:
+    return _chat_threads.get(user_id)
 
 
 def set_chat_thread(thread: threading.Thread | None) -> None:
-    uid = get_user_id()
-    _chat_threads[uid] = thread
+    set_chat_thread_for_user(get_user_id(), thread)
+
+
+def set_chat_thread_for_user(user_id: int, thread: threading.Thread | None) -> None:
+    _chat_threads[user_id] = thread
 
 
 def get_giveaway_for_user(user_id: int) -> dict:
@@ -101,6 +109,19 @@ def get_stop_flag_for_user(user_id: int) -> threading.Event:
         if user_id not in _stop_flags:
             _stop_flags[user_id] = threading.Event()
         return _stop_flags[user_id]
+
+
+def bump_chat_session(user_id: int) -> int:
+    """Invalidate previous chat watchers for this user. Returns new session id."""
+    with _ctx_lock:
+        nxt = int(_chat_sessions.get(user_id, 0)) + 1
+        _chat_sessions[user_id] = nxt
+        return nxt
+
+
+def get_chat_session(user_id: int) -> int:
+    with _ctx_lock:
+        return int(_chat_sessions.get(user_id, 0))
 
 
 _chat_instances: dict[int, object] = {}

@@ -29,8 +29,18 @@ if GIVEAWAY_BOT_DIR not in sys.path:
 
 INTERNAL_GIVEAWAY_PORT = int(os.environ.get("GIVEAWAY_INTERNAL_PORT", "51999"))
 DEFAULT_PORT = int(os.environ.get("OBS_ROULETTE_PORT", "58971"))
+SLOTS_UPSTREAM = (
+    os.environ.get("OBS_SLOTS_HOST", "127.0.0.1"),
+    int(os.environ.get("OBS_SLOTS_PORT", "8765")),
+)
+WALLET_UPSTREAM = (
+    os.environ.get("OBS_WALLET_HOST", "127.0.0.1"),
+    int(os.environ.get("OBS_WALLET_PORT", "8766")),
+)
 GIVEAWAY_PREFIX = "/giveaway"
 CALENDAR_PREFIX = "/calendar"
+SLOTS_PREFIX = "/slots"
+WALLET_PREFIX = "/wallet"
 CALENDAR_DIST = os.path.join(WORKSPACE, "dep-calendar", "dist")
 
 PLATFORM_PREFIXES = (
@@ -100,24 +110,59 @@ def _read_body(handler, method: str) -> bytes | None:
     return handler.rfile.read(length) if length > 0 else b""
 
 
+_GIVEAWAY_BOOT_JS = """<script>(function(){
+  var m = location.pathname.match(/\\/t\\/([^/]+)/);
+  var token = (m && m[1]) || new URLSearchParams(location.search).get('token') || '';
+  window.__OBS_TOKEN__ = token;
+  var orig = window.fetch.bind(window);
+  window.fetch = function(input, init) {
+    var url = typeof input === 'string' ? input : (input && input.url) || '';
+    if (typeof url === 'string' && url) {
+      try {
+        var abs = url.indexOf('://') !== -1 || url.indexOf('//') === 0;
+        var u = new URL(url, location.origin);
+        var changed = false;
+        if (!abs && url.charAt(0) === '/' && u.pathname.indexOf('/api/') === 0 &&
+            location.pathname.indexOf('/giveaway') !== -1) {
+          u.pathname = '/giveaway' + u.pathname;
+          changed = true;
+        }
+        if (token && (u.pathname.indexOf('/api/') === 0 || u.pathname.indexOf('/giveaway/api/') === 0) &&
+            !u.searchParams.has('token')) {
+          u.searchParams.set('token', token);
+          changed = true;
+        }
+        if (changed) {
+          url = abs ? u.href : (u.pathname + u.search + u.hash);
+          input = typeof input === 'string' ? url : new Request(url, input);
+        }
+      } catch (e) {}
+    }
+    return orig(input, init);
+  };
+})();</script>"""
+
+
 def _inject_giveaway_base(html: str) -> str:
     base_tag = f'<base href="{GIVEAWAY_PREFIX}/">'
+    inject = base_tag + _GIVEAWAY_BOOT_JS
     if "<base " in html.lower():
-        return html
+        inject = _GIVEAWAY_BOOT_JS
     lowered = html.lower()
     head_idx = lowered.find("<head>")
     if head_idx >= 0:
         insert_at = head_idx + len("<head>")
-        return html[:insert_at] + base_tag + html[insert_at:]
-    return base_tag + html
+        return html[:insert_at] + inject + html[insert_at:]
+    return inject + html
 
 
 class UnifiedHTTPServer(ThreadingHTTPServer):
-    allow_reuse_address = False
+    allow_reuse_address = True
 
 
 def _port_in_use(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             sock.bind(("0.0.0.0", port))
             return False
@@ -317,9 +362,103 @@ class UnifiedHTTPHandler(RouletteHTTPHandler):
       self.end_headers()
       self.wfile.write(data)
 
+    def _proxy_service(self, method: str, prefix: str, upstream: tuple[str, int]):
+      parsed = urlparse(self.path)
+      path = _norm_request_path(self)
+      upstream_path = path[len(prefix) :] or "/"
+      if not upstream_path.startswith("/"):
+          upstream_path = "/" + upstream_path
+      if prefix == WALLET_PREFIX:
+          if upstream_path in ("/", ""):
+              upstream_path = "/wallet"
+          elif not (upstream_path == "/wallet" or upstream_path.startswith("/wallet/")):
+              # Strip left /wallet → /dock, /constructor, /wallet_appearance.js, etc.
+              # Must use "/wallet/" (with slash), else "/wallet_appearance.js" falsely matches.
+              if upstream_path.startswith("/dock"):
+                  upstream_path = "/wallet" + upstream_path
+              elif upstream_path not in ("/status", "/health", "/channel_meta", "/thumb"):
+                  upstream_path = "/wallet" + upstream_path
+      if parsed.query:
+          upstream_path += "?" + parsed.query
+
+      headers = {}
+      for key, value in self.headers.items():
+          lk = key.lower()
+          if lk in ("host", "connection", "content-length"):
+              continue
+          headers[key] = value
+
+      body = _read_body(self, method)
+      host, port = upstream
+      try:
+          conn = http.client.HTTPConnection(host, port, timeout=60)
+          conn.request(method, upstream_path, body=body, headers=headers)
+          resp = conn.getresponse()
+          data = resp.read()
+          status = resp.status
+          resp_headers = resp.getheaders()
+          conn.close()
+      except OSError as exc:
+          self._send_json(
+              502,
+              {"ok": False, "error": "upstream_unavailable", "detail": str(exc)},
+          )
+          return
+
+      ctype = ""
+      for h, v in resp_headers:
+          if h.lower() == "content-type":
+              ctype = v
+              break
+
+      if prefix == SLOTS_PREFIX and "text/html" in ctype.lower():
+          try:
+              text = data.decode("utf-8")
+              boot = (
+                  "<script>(function(){"
+                  "var token=new URLSearchParams(location.search).get('token')||'';"
+                  "var o=window.fetch.bind(window);"
+                  "window.fetch=function(input,init){"
+                  "var url=typeof input==='string'?input:(input&&input.url)||'';"
+                  "if(typeof url==='string'&&url.charAt(0)==='/'&&"
+                  "(url.indexOf('/api/')===0||url.indexOf('/images/')===0||url.indexOf('/sounds/')===0)){"
+                  "url='/slots'+url;"
+                  "if(token){var u=new URL(url,location.origin);if(!u.searchParams.has('token'))"
+                  "u.searchParams.set('token',token);url=u.pathname+u.search+u.hash;}"
+                  "input=typeof input==='string'?url:new Request(url,input);"
+                  "}"
+                  "return o(input,init);};"
+                  "})();</script>"
+              )
+              lowered = text.lower()
+              idx = lowered.find("<head>")
+              if idx >= 0:
+                  at = idx + len("<head>")
+                  text = text[:at] + boot + text[at:]
+              else:
+                  text = boot + text
+              data = text.encode("utf-8")
+          except UnicodeDecodeError:
+              pass
+
+      self.send_response(status)
+      for h, v in resp_headers:
+          if h.lower() in ("transfer-encoding", "content-length", "connection"):
+              continue
+          self.send_header(h, v)
+      self._cors()
+      self.send_header("Content-Length", str(len(data)))
+      self.end_headers()
+      self.wfile.write(data)
+
     def do_OPTIONS(self):
       path = _norm_request_path(self)
-      if path.startswith(GIVEAWAY_PREFIX) or _is_platform_path(path):
+      if (
+          path.startswith(GIVEAWAY_PREFIX)
+          or path.startswith(SLOTS_PREFIX)
+          or path.startswith(WALLET_PREFIX)
+          or _is_platform_path(path)
+      ):
           self.send_response(204)
           self._cors()
           self.end_headers()
@@ -336,6 +475,12 @@ class UnifiedHTTPHandler(RouletteHTTPHandler):
           return self._proxy_internal("GET", path)
       if path.startswith(GIVEAWAY_PREFIX):
           return self._proxy_giveaway("GET")
+      if path == SLOTS_PREFIX or path.startswith(SLOTS_PREFIX + "/"):
+          return self._proxy_service("GET", SLOTS_PREFIX, SLOTS_UPSTREAM)
+      if path == WALLET_PREFIX or path.startswith(WALLET_PREFIX + "/"):
+          return self._proxy_service("GET", WALLET_PREFIX, WALLET_UPSTREAM)
+      if path in ("/status", "/health", "/channel_meta", "/thumb"):
+          return self._proxy_service("GET", "", WALLET_UPSTREAM)
       return super().do_GET()
 
     def do_POST(self):
@@ -344,6 +489,10 @@ class UnifiedHTTPHandler(RouletteHTTPHandler):
           return self._proxy_internal("POST", path)
       if path.startswith(GIVEAWAY_PREFIX):
           return self._proxy_giveaway("POST")
+      if path == SLOTS_PREFIX or path.startswith(SLOTS_PREFIX + "/"):
+          return self._proxy_service("POST", SLOTS_PREFIX, SLOTS_UPSTREAM)
+      if path == WALLET_PREFIX or path.startswith(WALLET_PREFIX + "/"):
+          return self._proxy_service("POST", WALLET_PREFIX, WALLET_UPSTREAM)
       return super().do_POST()
 
     def do_PUT(self):
@@ -372,15 +521,19 @@ def main():
         )
 
     port = DEFAULT_PORT
-    if _port_in_use(port):
-        print()
-        print(f" ERROR: port {port} is already in use.")
-        print(" Another server.py / unified_server.py is still running.")
-        print(" Fix: close old terminal windows or run start.bat again (it stops old ports).")
-        print()
+    httpd = None
+    last_err = None
+    for attempt in range(20):
+        try:
+            httpd = UnifiedHTTPServer(("0.0.0.0", port), UnifiedHTTPHandler)
+            break
+        except OSError as exc:
+            last_err = exc
+            print(f"Port {port} busy ({exc}), retry {attempt + 1}/20...", flush=True)
+            time.sleep(0.5)
+    if httpd is None:
+        print(f" ERROR: cannot bind port {port}: {last_err}")
         raise SystemExit(1)
-
-    httpd = UnifiedHTTPServer(("0.0.0.0", port), UnifiedHTTPHandler)
     base = f"http://127.0.0.1:{port}"
     print("=" * 60)
     print(" OBS Widgets — unified local server")

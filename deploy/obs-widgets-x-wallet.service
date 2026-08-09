@@ -1,0 +1,16 @@
+[Unit]
+Description=OBS Widgets X — wallet likes bridge
+After=network.target
+
+[Service]
+Type=simple
+User=obswidgets
+Group=obswidgets
+WorkingDirectory=/opt/obs-widgets-x/wallet-dep-withdraw
+EnvironmentFile=/opt/obs-widgets-x/deploy/obs-widgets-x.env
+ExecStart=/opt/obs-widgets-x/.venv/bin/python likes_bridge.py --host 127.0.0.1 --port 18766
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

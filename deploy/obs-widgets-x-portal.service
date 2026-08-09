@@ -1,0 +1,19 @@
+[Unit]
+Description=OBS Widgets X — unified portal
+After=network.target obs-widgets-x-slots.service obs-widgets-x-wallet.service
+Wants=obs-widgets-x-slots.service obs-widgets-x-wallet.service
+
+[Service]
+Type=simple
+User=obswidgets
+Group=obswidgets
+WorkingDirectory=/opt/obs-widgets-x/giveaway-bot
+EnvironmentFile=/opt/obs-widgets-x/deploy/obs-widgets-x.env
+ExecStart=/opt/obs-widgets-x/.venv/bin/python unified_server.py
+Restart=always
+RestartSec=3
+KillMode=control-group
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target

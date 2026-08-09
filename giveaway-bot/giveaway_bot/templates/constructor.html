@@ -977,15 +977,20 @@
         
         let settings = {};
         let settingsLoaded = false;
-        let saveTimer = null;
         let saveChain = Promise.resolve();
         
         document.addEventListener('DOMContentLoaded', async () => {
-            await loadImages();
-            await loadSettings();
             setupElementClicks();
             setupInputListeners();
             buildElementLists();
+            try {
+                await loadImages();
+                await loadSettings();
+            } catch (e) {
+                console.error('constructor bootstrap error', e);
+                settings = { width: 400, height: 50, border_radius: 10, widget_align_h: 'left' };
+                settingsLoaded = true;
+            }
             updatePreview();
             requestAnimationFrame(() => {
                 updatePreviewScale();
@@ -1123,12 +1128,14 @@
         function setupInputListeners() {
             // Widget size
             ['width', 'height', 'borderRadius'].forEach(id => {
-                document.getElementById(id).addEventListener('input', () => {
+                const input = document.getElementById(id);
+                const apply = () => {
                     const key = id === 'borderRadius' ? 'border_radius' : id;
-                    settings[key] = parseInt(document.getElementById(id).value, 10);
-                    updateValueDisplays();
+                    settings[key] = parseInt(input.value, 10);
                     updatePreview();
-                });
+                };
+                input.addEventListener('input', apply);
+                input.addEventListener('change', apply);
             });
             
             // Element visibility
@@ -1288,23 +1295,21 @@
             return style;
         }
         
-        function scheduleAutoSave() {
-            if (!settingsLoaded) return;
-            clearTimeout(saveTimer);
-            saveTimer = setTimeout(() => saveSettings(true), 500);
-        }
-        
         function updatePreview() {
             const widget = document.getElementById('widgetPreview');
+            if (!widget) return;
             const textStyle = getTextStyle();
-            const barWidth = settings.width || 400;
-            const barHeight = settings.height || 50;
+            const barWidth = Number(settings.width) || 400;
+            const barHeight = Number(settings.height) || 50;
+            const radius = settings.border_radius ?? 10;
             
-            widget.style.width = barWidth + 'px';
-            widget.style.minWidth = barWidth + 'px';
-            widget.style.height = barHeight + 'px';
-            widget.style.borderRadius = (settings.border_radius ?? 10) + 'px';
+            widget.style.setProperty('width', barWidth + 'px', 'important');
+            widget.style.setProperty('min-width', barWidth + 'px', 'important');
+            widget.style.setProperty('max-width', barWidth + 'px', 'important');
+            widget.style.setProperty('height', barHeight + 'px', 'important');
+            widget.style.setProperty('border-radius', radius + 'px', 'important');
             applyWidgetAlign();
+            updateValueDisplays();
             
             // Background
             if (currentMode === 'winner' || currentMode === 'countdown') {
@@ -1365,7 +1370,6 @@
                 el.style.cssText = style;
                 el.classList.toggle('element-hidden', !visible);
             });
-            scheduleAutoSave();
         }
         
         function setMode(mode, btn) {
@@ -1393,8 +1397,13 @@
         
         async function loadSettings() {
             try {
-                const res = await fetch('/api/widget-settings');
-                settings = await res.json();
+                const res = await fetch('/api/widget-settings', { credentials: 'same-origin' });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                if (!data || typeof data !== 'object' || Array.isArray(data)) {
+                    throw new Error('bad settings payload');
+                }
+                settings = data;
                 
                 document.getElementById('width').value = settings.width || 400;
                 document.getElementById('height').value = settings.height || 50;
@@ -1460,18 +1469,21 @@
                 const res = await fetch('/api/widget-settings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
                     body: JSON.stringify(settings)
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok || data.success === false) {
                     throw new Error(data.error || ('HTTP ' + res.status));
                 }
-                if (data.settings) {
-                    settings = data.settings;
+                if (data.settings && typeof data.settings === 'object') {
+                    settings = { ...settings, ...data.settings };
+                    updatePreview();
                 }
 
                 if (!silent) {
                     const toast = document.getElementById('toast');
+                    toast.textContent = 'Сохранено для вашего аккаунта';
                     toast.classList.add('show');
                     setTimeout(() => toast.classList.remove('show'), 2000);
                 }

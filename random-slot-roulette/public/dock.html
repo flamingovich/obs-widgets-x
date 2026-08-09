@@ -247,13 +247,25 @@
       excludeWrap.classList.toggle("disabled", !isAllProviders());
     }
 
+    const PATH_PREFIX = location.pathname.startsWith("/slots/") ? "/slots" : "";
+    const OBS_TOKEN = new URLSearchParams(location.search).get("token") || "";
+    function withToken(url) {
+      if (!OBS_TOKEN) return url;
+      const u = new URL(url, location.origin);
+      if (!u.searchParams.has("token")) u.searchParams.set("token", OBS_TOKEN);
+      return u.pathname + u.search + u.hash;
+    }
+    function apiUrl(path) {
+      return withToken(PATH_PREFIX + path);
+    }
+
     async function pushExclusions() {
       const payload = {
         visible: currentVisible,
         provider: providerEl.value || "all",
       };
       if (isAllProviders()) payload.excludedProviders = getExcludedFromUI();
-      const r = await fetch("/api/state", {
+      const r = await fetch(apiUrl("/api/state"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -269,9 +281,9 @@
     async function ping() {
       try {
         const [slotsRes, providersRes, stateRes] = await Promise.all([
-          fetch("/api/slots"),
-          fetch("/api/providers"),
-          fetch("/api/state"),
+          fetch(apiUrl("/api/slots")),
+          fetch(apiUrl("/api/providers")),
+          fetch(apiUrl("/api/state")),
         ]);
         if (!slotsRes.ok) throw new Error("HTTP " + slotsRes.status);
         if (!providersRes.ok) throw new Error("HTTP " + providersRes.status);
@@ -333,7 +345,7 @@
         provider: providerEl.value || "all",
       };
       if (isAllProviders()) payload.excludedProviders = getExcludedFromUI();
-      const r = await fetch("/api/state", {
+      const r = await fetch(apiUrl("/api/state"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -354,7 +366,7 @@
       status.className = "status";
       try {
         await setState(true);
-        const r = await fetch("/api/spin", {
+        const r = await fetch(apiUrl("/api/spin"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ provider: providerEl.value || null }),

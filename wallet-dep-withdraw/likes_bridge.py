@@ -17,6 +17,8 @@ from typing import Any
 from flask import Flask, Response, jsonify, redirect, request, send_from_directory
 import yt_dlp
 
+from wallet_widget_settings import load_wallet_widget, save_wallet_widget
+
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CACHE_TTL = 16.0
@@ -24,6 +26,9 @@ _cache: dict[str, tuple[float, dict[str, Any]]] = {}
 
 META_TTL = 300.0
 _meta_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+
+FX_TTL = 300.0
+_fx_cache: tuple[float, dict[str, Any]] | None = None
 
 
 def _cors(resp):
@@ -159,7 +164,182 @@ def wallet_overlay():
 
 @app.route("/wallet/dock")
 def wallet_dock():
-    return redirect("/wallet?dock", code=302)
+    # Сохраняем token и прочие query-параметры (иначе док и оверлей разъедутся)
+    qs = request.query_string.decode("utf-8", errors="ignore")
+    target = "/wallet?dock"
+    if qs:
+        parts = [p for p in qs.split("&") if p and not p.startswith("dock")]
+        if parts:
+            target += "&" + "&".join(parts)
+    return redirect(target, code=302)
+
+
+_STATE_DIR = os.path.join(BASE_DIR, "state")
+_state_lock = __import__("threading").Lock()
+
+
+def _state_key(token: str | None = None) -> str:
+    t = (token if token is not None else (request.args.get("token") or "")).strip()
+    if not t:
+        t = "_default"
+    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in t)[:80]
+    return safe or "_default"
+
+
+def _state_path(key: str) -> str:
+    return os.path.join(_STATE_DIR, f"wallet_{key}.json")
+
+
+def _default_wallet_state() -> dict[str, Any]:
+    return {
+        "dep": "",
+        "out": "",
+        "yt": "",
+        "goal": "",
+        "hideLikes": False,
+        "dep_currency": "RUB",
+        "out_currency": "RUB",
+        "updated_at": 0,
+    }
+
+
+def _load_wallet_state(key: str) -> dict[str, Any]:
+    path = _state_path(key)
+    base = _default_wallet_state()
+    if not os.path.isfile(path):
+        return base
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        if not isinstance(data, dict):
+            return base
+        out = {**base, **data}
+        out["hideLikes"] = bool(out.get("hideLikes"))
+        out["dep_currency"] = _normalize_currency(out.get("dep_currency"))
+        out["out_currency"] = _normalize_currency(out.get("out_currency"))
+        return out
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return base
+
+
+def _normalize_currency(raw: Any, default: str = "RUB") -> str:
+    s = str(raw or default).strip().upper()
+    if s in ("USD", "$", "USDT", "ДОЛ", "ДОЛЛ"):
+        return "USD"
+    return "RUB"
+
+
+def _save_wallet_state(key: str, data: dict[str, Any]) -> dict[str, Any]:
+    os.makedirs(_STATE_DIR, exist_ok=True)
+    current = _load_wallet_state(key)
+    for field in ("dep", "out", "yt", "goal"):
+        if field in data and data[field] is not None:
+            current[field] = str(data[field])
+    if "hideLikes" in data:
+        current["hideLikes"] = bool(data["hideLikes"])
+    if "dep_currency" in data:
+        current["dep_currency"] = _normalize_currency(data.get("dep_currency"))
+    if "out_currency" in data:
+        current["out_currency"] = _normalize_currency(data.get("out_currency"))
+    current["updated_at"] = int(time.time() * 1000)
+    path = _state_path(key)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(current, fh, ensure_ascii=False)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
+    return current
+
+
+@app.route("/wallet/state", methods=["GET", "POST"])
+def wallet_state():
+    key = _state_key()
+    with _state_lock:
+        if request.method == "GET":
+            return jsonify({"ok": True, "state": _load_wallet_state(key)})
+        incoming = request.get_json(silent=True)
+        if not isinstance(incoming, dict):
+            incoming = {}
+        payload = incoming.get("state") if isinstance(incoming.get("state"), dict) else incoming
+        saved = _save_wallet_state(key, payload)
+        return jsonify({"ok": True, "state": saved})
+
+
+def fetch_usd_rub_rate() -> dict[str, Any]:
+    """USD/RUB from CBR (via cbr-xml-daily). Cached ~5 min."""
+    global _fx_cache
+    now = time.monotonic()
+    if _fx_cache and now - _fx_cache[0] < FX_TTL:
+        return dict(_fx_cache[1])
+
+    out: dict[str, Any] = {"ok": False}
+    sources = (
+        "https://www.cbr-xml-daily.ru/daily_json.js",
+        "https://www.cbr-xml-daily.ru/daily_json.xml",
+    )
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        )
+    }
+
+    # JSON (preferred)
+    try:
+        req = urllib.request.Request(sources[0], headers=headers)
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        usd = (data.get("Valute") or {}).get("USD") or {}
+        val = float(usd.get("Value") or 0)
+        nominal = float(usd.get("Nominal") or 1)
+        if val > 0 and nominal > 0:
+            rate = val / nominal
+            out = {
+                "ok": True,
+                "usd_rub": round(rate, 4),
+                "source": "cbr",
+                "updated_at": int(time.time() * 1000),
+            }
+    except (urllib.error.URLError, urllib.error.HTTPError, OSError, json.JSONDecodeError, TypeError, ValueError):
+        pass
+
+    if not out.get("ok") and _fx_cache:
+        stale = dict(_fx_cache[1])
+        stale["stale"] = True
+        return stale
+
+    if out.get("ok"):
+        _fx_cache = (now, dict(out))
+    return out
+
+
+@app.route("/wallet/fx")
+def wallet_fx():
+    return jsonify(fetch_usd_rub_rate())
+
+
+@app.route("/wallet/constructor")
+def wallet_constructor():
+    return send_from_directory(BASE_DIR, "constructor.html")
+
+
+@app.route("/wallet/api/widget-settings", methods=["GET", "POST", "OPTIONS"])
+def wallet_widget_settings_api():
+    if request.method == "OPTIONS":
+        return ("", 204)
+    token = (request.args.get("token") or "").strip()
+    if request.method == "GET":
+        return jsonify({"ok": True, "settings": load_wallet_widget(token=token)})
+    incoming = request.get_json(silent=True)
+    if not isinstance(incoming, dict):
+        incoming = {}
+    reset = bool(incoming.get("reset"))
+    payload = incoming.get("settings") if isinstance(incoming.get("settings"), dict) else incoming
+    if not isinstance(payload, dict):
+        payload = {}
+    saved = save_wallet_widget(payload, token=token, reset=reset)
+    return jsonify({"ok": True, "settings": saved})
 
 
 @app.route("/wallet/<path:filename>")

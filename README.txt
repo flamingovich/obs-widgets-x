@@ -18,19 +18,24 @@ OBS Widgets - единый гайд по запуску
 
 Быстрый запуск (рекомендуется)
 ------------------------------
-1. Запусти файл: start.bat (из этой корневой папки).
-2. В меню выбери:
-   [1] Giveaway Bot
-   [2] Random Slot Roulette
-   [3] Wallet Bridge
-   [4] Запустить все сразу
-   [0] Выход
+macOS / Linux:
+1. Из корневой папки: ./start.sh
+2. Остановка: ./stop.sh
+3. Логи: .logs/portal.log, roulette.log, wallet.log
 
-Скрипт откроет отдельные окна консоли для выбранных сервисов.
-Остановка любого сервиса: Ctrl+C в его окне.
-Примечание: для Giveaway (пункт 1 и 4) запускаются 2 окна:
-- Giveaway Bot (5000) для /widget и /obs-dock
-- Giveaway Wheel Server (58971) для отдельного wheel + cards
+Windows:
+1. Запусти файл: start.bat (из этой корневой папки).
+2. Скрипт откроет отдельные окна консоли для сервисов.
+3. Остановка: Ctrl+C в окне сервиса (или закрой окна).
+
+Сервисы после старта:
+- Giveaway + Roulette portal (58971) — unified_server.py
+- Random Slot Roulette (8765)
+- Wallet Bridge (8766)
+
+Примечание macOS: порт 5000 часто занят AirPlay Receiver
+(Системные настройки → Основные → AirDrop и Handoff → «Ресивер AirPlay»).
+Основные виджеты используют 58971 / 8765 / 8766 — конфликта нет.
 
 
 Что за что отвечает
@@ -63,23 +68,27 @@ wallet-dep-withdraw:
 Требования для запуска
 ----------------------
 Обязательно:
-- Windows 10/11
-- Python 3.10+ (желательно установлен с галочкой "Add python.exe to PATH")
+- macOS 12+ / Windows 10/11 / Linux
+- Python 3.10+ (в PATH: python3 или python)
 - Node.js 18+ (для random-slot-roulette)
 - Интернет (для некоторых функций, например YouTube likes bridge)
 
-Python-пакеты:
-- для wallet-dep-withdraw: pip install -r wallet-dep-withdraw\requirements.txt
-- для giveaway-bot (минимум): pip install flask pytchat
+Python-пакеты (start.sh / start.bat ставят сами):
+- wallet-dep-withdraw: pip install -r wallet-dep-withdraw/requirements.txt
+- giveaway-bot: pip install -r giveaway-bot/requirements.txt
+
+dep-calendar (опционально, для /calendar на портале):
+- start.sh соберёт vite-сборку, если нет dep-calendar/dist
+- вручную: cd dep-calendar && npm install && npx vite build
 
 
 Проверка на другом компьютере
 -----------------------------
-Будет работать на другом ПК, если:
+Будет работать, если:
 1) Скопировать всю папку obs-widgets целиком.
 2) Установить Python и Node.js.
-3) Запускать через start.bat.
-4) Разрешить локальные подключения в брандмауэре, если попросит Windows.
+3) macOS/Linux: ./start.sh   |   Windows: start.bat
+4) На Windows: разрешить локальные подключения в брандмауэре, если попросит.
 
 Возможные проблемы:
 - Порт уже занят другой программой (редко):
@@ -102,7 +111,7 @@ OBS Studio: куда и что вставлять
 --------------------------------
 Перед добавлением в OBS:
 1) Сначала запусти start.bat (все сервисы) или только нужный сервис вручную.
-2) Убедись, что URL открывается в браузере Windows (Chrome/Edge).
+2) Убедись, что URL открывается в браузере (Chrome / Safari / Edge).
 3) Только потом добавляй URL в OBS.
 
 
@@ -189,7 +198,7 @@ OBS Studio: куда и что вставлять
 Если в OBS белый экран или ошибка
 ---------------------------------
 1) Проверь, что сервис реально запущен (окно консоли открыто, ошибок нет).
-2) Открой тот же URL в обычном браузере Windows.
+2) Открой тот же URL в обычном браузере.
 3) Проверь, не перепутан ли порт:
    - 5000 -> giveaway-bot
    - 8765 -> random-slot-roulette

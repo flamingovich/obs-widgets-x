@@ -8,6 +8,7 @@ const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, "public");
 const SOUNDS = path.join(ROOT, "sounds");
 const PORT = Number(process.env.PORT) || 8765;
+const HOST = process.env.HOST || "127.0.0.1";
 
 function normalizeProviderId(raw) {
   const p = String(raw || "").toLowerCase();
@@ -28,15 +29,32 @@ function loadSlots() {
 }
 
 const slots = loadSlots();
-const queue = [];
 const providers = Array.from(new Set(slots.map((s) => s.provider))).sort((a, b) => a.localeCompare(b));
-let overlayVisible = false;
-let selectedProvider = null;
-/** Провайдеры, которых нет в прокруте при режиме «Все провайдеры». */
-const excludedProviders = new Set();
 
-function slotsForAllMode() {
-  return slots.filter((s) => !excludedProviders.has(s.provider));
+/** @type {Map<string, { queue: any[], overlayVisible: boolean, selectedProvider: string|null, excludedProviders: Set<string> }>} */
+const tenants = new Map();
+
+function tenantKey(url) {
+  const token = (url.searchParams.get("token") || "").trim();
+  return token || "_default";
+}
+
+function getTenant(key) {
+  let t = tenants.get(key);
+  if (!t) {
+    t = {
+      queue: [],
+      overlayVisible: false,
+      selectedProvider: null,
+      excludedProviders: new Set(),
+    };
+    tenants.set(key, t);
+  }
+  return t;
+}
+
+function slotsForAllMode(t) {
+  return slots.filter((s) => !t.excludedProviders.has(s.provider));
 }
 
 const MIME = {
@@ -100,6 +118,7 @@ const server = http.createServer((req, res) => {
   }
 
   const url = new URL(req.url || "/", `http://127.0.0.1`);
+  const t = getTenant(tenantKey(url));
 
   if (req.method === "GET" && url.pathname === "/api/slots") {
     sendJson(res, 200, { slots });
@@ -112,16 +131,16 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === "GET" && url.pathname === "/api/next-spin") {
-    const next = queue.shift() ?? null;
+    const next = t.queue.shift() ?? null;
     sendJson(res, 200, next);
     return;
   }
 
   if (req.method === "GET" && url.pathname === "/api/state") {
     sendJson(res, 200, {
-      visible: overlayVisible,
-      provider: selectedProvider || "all",
-      excludedProviders: Array.from(excludedProviders).sort((a, b) => a.localeCompare(b)),
+      visible: t.overlayVisible,
+      provider: t.selectedProvider || "all",
+      excludedProviders: Array.from(t.excludedProviders).sort((a, b) => a.localeCompare(b)),
     });
     return;
   }
@@ -148,7 +167,7 @@ const server = http.createServer((req, res) => {
 
       const available = provider
         ? slots.filter((s) => s.provider === provider)
-        : slotsForAllMode();
+        : slotsForAllMode(t);
       if (available.length === 0) {
         sendJson(res, 400, {
           error: provider
@@ -164,9 +183,9 @@ const server = http.createServer((req, res) => {
 
       const winner = available[Math.floor(Math.random() * available.length)];
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-      selectedProvider = provider || null;
-      overlayVisible = true;
-      queue.push({ id, winner, provider: provider || "all" });
+      t.selectedProvider = provider || null;
+      t.overlayVisible = true;
+      t.queue.push({ id, winner, provider: provider || "all" });
       sendJson(res, 200, { ok: true, id, winner, provider: provider || "all" });
     });
     req.on("error", () => {
@@ -192,24 +211,24 @@ const server = http.createServer((req, res) => {
         }
       }
       if (typeof parsed.visible === "boolean") {
-        overlayVisible = parsed.visible;
+        t.overlayVisible = parsed.visible;
       }
       if (typeof parsed.provider === "string") {
         const p = normalizeProviderId(parsed.provider.trim().toLowerCase());
-        selectedProvider = p && p !== "all" ? p : null;
+        t.selectedProvider = p && p !== "all" ? p : null;
       }
       if ("excludedProviders" in parsed && Array.isArray(parsed.excludedProviders)) {
-        excludedProviders.clear();
+        t.excludedProviders.clear();
         for (const raw of parsed.excludedProviders) {
           const id = normalizeProviderId(String(raw || "").trim().toLowerCase());
-          if (id && providers.includes(id)) excludedProviders.add(id);
+          if (id && providers.includes(id)) t.excludedProviders.add(id);
         }
       }
       sendJson(res, 200, {
         ok: true,
-        visible: overlayVisible,
-        provider: selectedProvider || "all",
-        excludedProviders: Array.from(excludedProviders).sort((a, b) => a.localeCompare(b)),
+        visible: t.overlayVisible,
+        provider: t.selectedProvider || "all",
+        excludedProviders: Array.from(t.excludedProviders).sort((a, b) => a.localeCompare(b)),
       });
     });
     req.on("error", () => {
@@ -262,8 +281,8 @@ const server = http.createServer((req, res) => {
   res.end("Not found");
 });
 
-server.listen(PORT, "127.0.0.1", () => {
-  console.log(`Roulette: http://127.0.0.1:${PORT}/overlay.html (источник браузера)`);
-  console.log(`Док-панель: http://127.0.0.1:${PORT}/dock.html`);
+server.listen(PORT, HOST, () => {
+  console.log(`Roulette: http://${HOST}:${PORT}/overlay.html (источник браузера)`);
+  console.log(`Док-панель: http://${HOST}:${PORT}/dock.html`);
   console.log(`Слотов в каталоге: ${slots.length}`);
 });

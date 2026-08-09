@@ -21,13 +21,19 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_PORT = int(os.environ.get("OBS_ROULETTE_PORT", "58971"))
 
 _spin_lock = threading.Lock()
-_last_spin: dict | None = None
 _reset_lock = threading.Lock()
-_last_reset: dict | None = None
 _card_lock = threading.Lock()
-_last_card_command: dict | None = None
 _state_lock = threading.Lock()
-_shared_state: dict | None = None
+_last_spin_by: dict[str, dict | None] = {}
+_last_reset_by: dict[str, dict | None] = {}
+_last_card_by: dict[str, dict | None] = {}
+_state_by: dict[str, dict | None] = {}
+
+
+def _tenant_key(handler: BaseHTTPRequestHandler) -> str:
+    qs = parse_qs(urlparse(handler.path).query)
+    token = (qs.get("token") or [""])[0].strip()
+    return token or "_default"
 
 
 def _default_state():
@@ -152,8 +158,8 @@ class RouletteHTTPHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        global _shared_state
         p = _norm_request_path(self)
+        tenant = _tenant_key(self)
 
         if p == "/":
             self.send_response(302)
@@ -173,28 +179,29 @@ class RouletteHTTPHandler(BaseHTTPRequestHandler):
 
         if p == "/api/spin":
             with _spin_lock:
-                cmd = dict(_last_spin) if _last_spin else None
+                raw = _last_spin_by.get(tenant)
+                cmd = dict(raw) if raw else None
             self._send_json(200, {"ok": True, "command": cmd})
             return
 
         if p == "/api/card-command":
             with _card_lock:
-                cmd = dict(_last_card_command) if _last_card_command else None
+                raw = _last_card_by.get(tenant)
+                cmd = dict(raw) if raw else None
             self._send_json(200, {"ok": True, "command": cmd})
             return
 
         if p == "/api/reset-wheel":
             with _reset_lock:
-                cmd = dict(_last_reset) if _last_reset else None
+                raw = _last_reset_by.get(tenant)
+                cmd = dict(raw) if raw else None
             self._send_json(200, {"ok": True, "reset": cmd})
             return
 
         if p == "/api/state":
             with _state_lock:
-                if _shared_state is None:
-                    st = _default_state()
-                else:
-                    st = dict(_shared_state)
+                cur = _state_by.get(tenant)
+                st = _default_state() if cur is None else dict(cur)
             if "widgetVisible" not in st or not isinstance(st.get("widgetVisible"), bool):
                 st["widgetVisible"] = True
             self._send_json(200, {"ok": True, "state": st})
@@ -202,16 +209,16 @@ class RouletteHTTPHandler(BaseHTTPRequestHandler):
 
         if p == "/api/poll":
             with _state_lock:
-                if _shared_state is None:
-                    st = _default_state()
-                else:
-                    st = dict(_shared_state)
+                cur = _state_by.get(tenant)
+                st = _default_state() if cur is None else dict(cur)
             if "widgetVisible" not in st or not isinstance(st.get("widgetVisible"), bool):
                 st["widgetVisible"] = True
             with _spin_lock:
-                cmd = dict(_last_spin) if _last_spin else None
+                raw = _last_spin_by.get(tenant)
+                cmd = dict(raw) if raw else None
             with _reset_lock:
-                rst = dict(_last_reset) if _last_reset else None
+                raw = _last_reset_by.get(tenant)
+                rst = dict(raw) if raw else None
             self._send_json(200, {"ok": True, "state": st, "command": cmd, "reset": rst})
             return
 
@@ -229,15 +236,16 @@ class RouletteHTTPHandler(BaseHTTPRequestHandler):
                     entry = None
             if isinstance(entry, dict):
                 with _state_lock:
-                    if _shared_state is None:
-                        _shared_state = _default_state()
-                    hist = list(_shared_state.get("history") or [])
+                    cur = _state_by.get(tenant)
+                    if cur is None:
+                        cur = _default_state()
+                    hist = list(cur.get("history") or [])
                     hist = _history_prepend_dedup(hist, entry)
-                    prev = dict(_shared_state)
+                    prev = dict(cur)
                     prev["history"] = hist
                     if "widgetVisible" not in prev:
                         prev["widgetVisible"] = True
-                    _shared_state = prev
+                    _state_by[tenant] = prev
             gif_1x1 = (
                 b"GIF89a\x01\x00\x01\x00\x80\x01\x00\x00\x00\x00"
                 b"\xff\xff\xff!\xf9\x04\x01\x00\x00\x01\x00,\x00\x00\x00\x00"
@@ -262,17 +270,17 @@ class RouletteHTTPHandler(BaseHTTPRequestHandler):
         self._send_json(404, {"ok": False, "error": "not_found", "path": p})
 
     def do_POST(self):
-        global _shared_state, _last_spin, _last_reset, _last_card_command
         p = _norm_request_path(self)
+        tenant = _tenant_key(self)
 
         if p == "/api/reset-wheel":
             data = self._read_json_body()
             ts = int(data.get("ts") or time.time() * 1000)
             cmd = {"type": "resetWheel", "ts": ts}
             with _spin_lock:
-                _last_spin = None
+                _last_spin_by[tenant] = None
             with _reset_lock:
-                _last_reset = cmd
+                _last_reset_by[tenant] = cmd
             self._send_json(200, {"ok": True, "ts": ts})
             return
 
@@ -285,7 +293,7 @@ class RouletteHTTPHandler(BaseHTTPRequestHandler):
                 "payload": data.get("payload") if isinstance(data.get("payload"), dict) else {},
             }
             with _card_lock:
-                _last_card_command = cmd
+                _last_card_by[tenant] = cmd
             self._send_json(200, {"ok": True, "ts": ts})
             return
 
@@ -306,7 +314,7 @@ class RouletteHTTPHandler(BaseHTTPRequestHandler):
             if not isinstance(case_weights, dict):
                 case_weights = {}
             with _state_lock:
-                prev = dict(_shared_state) if _shared_state else {}
+                prev = dict(_state_by[tenant]) if _state_by.get(tenant) else {}
             if not isinstance(wheel_prizes, list):
                 wheel_prizes = prev.get("wheelPrizes") if isinstance(prev.get("wheelPrizes"), list) else []
             if not isinstance(case_tables, dict):
@@ -320,7 +328,7 @@ class RouletteHTTPHandler(BaseHTTPRequestHandler):
             else:
                 merged_hist = _merge_history_preserve_order(history, prev_hist, 100)
             with _state_lock:
-                _shared_state = {
+                _state_by[tenant] = {
                     "chances": chances,
                     "history": merged_hist,
                     "caseWeights": case_weights,
@@ -335,16 +343,17 @@ class RouletteHTTPHandler(BaseHTTPRequestHandler):
             data = self._read_json_body()
             entry = data.get("entry")
             with _state_lock:
-                if _shared_state is None:
-                    _shared_state = _default_state()
-                hist = list(_shared_state.get("history") or [])
+                cur = _state_by.get(tenant)
+                if cur is None:
+                    cur = _default_state()
+                hist = list(cur.get("history") or [])
                 if isinstance(entry, dict):
                     hist = _history_prepend_dedup(hist, entry)
-                prev = dict(_shared_state)
+                prev = dict(cur)
                 prev["history"] = hist
                 if "widgetVisible" not in prev:
                     prev["widgetVisible"] = True
-                _shared_state = prev
+                _state_by[tenant] = prev
             self._send_json(200, {"ok": True})
             return
 
@@ -364,7 +373,7 @@ class RouletteHTTPHandler(BaseHTTPRequestHandler):
         if data.get("caseTables") is not None:
             cmd["caseTables"] = data["caseTables"]
         with _spin_lock:
-            _last_spin = cmd
+            _last_spin_by[tenant] = cmd
         self._send_json(200, {"ok": True, "ts": ts})
 
 

@@ -669,12 +669,18 @@
                 } else if (data.is_test_mode && data.is_active) {
                     dot.classList.add('active');
                     text.textContent = 'Тестовый режим активен';
+                } else if (data.chat_reconnecting && (data.is_active || data.winner)) {
+                    dot.classList.add('active');
+                    text.textContent = 'Чат отвалился — переподключаю…';
                 } else if (data.is_active && data.is_connected) {
                     dot.classList.add('active');
                     text.textContent = 'Активен — слежу за чатом';
                 } else if (data.is_active) {
                     dot.classList.add('active');
                     text.textContent = 'Подключаюсь...';
+                } else if (data.winner && data.is_connected) {
+                    dot.classList.add('active');
+                    text.textContent = 'Победитель выбран — жду ответ в чате';
                 } else if (data.winner) {
                     dot.classList.add('active');
                     text.textContent = 'Победитель выбран';
