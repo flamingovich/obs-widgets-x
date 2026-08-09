@@ -85,10 +85,10 @@ start_bg() {
   local logfile="$2"
   shift 2
   echo "Запуск ${CYAN}${name}${RESET}..."
-  (
-    "$@" >"$logfile" 2>&1
-  ) &
+  # nohup + disown: процессы не умирают вместе с родительским shell (Cursor/IDE)
+  nohup "$@" >"$logfile" 2>&1 &
   local pid=$!
+  disown "$pid" 2>/dev/null || true
   echo "$pid $name" >> "$PID_FILE"
   echo "  → PID $pid, лог: $logfile"
 }

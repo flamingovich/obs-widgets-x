@@ -36,7 +36,7 @@
             display: flex;
             align-items: flex-start;
             justify-content: flex-start;
-            padding: 28px 12px;
+            padding: 0;
             box-sizing: border-box;
         }
 
@@ -44,6 +44,7 @@
         .widget-stage.align-right { justify-content: flex-end; }
         
         .widget {
+            --noise-tile: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
             position: relative;
             top: auto;
             left: auto;
@@ -60,9 +61,71 @@
             transition: opacity 0.3s ease;
             background-size: cover;
             background-position: center;
+            overflow: hidden;
+            isolation: isolate;
         }
         
         .widget.visible { opacity: 1; }
+
+        .widget.bg-anim-shift,
+        .widget.bg-anim-flow {
+            background-image: var(--bg-gradient) !important;
+            background-size: 300% 300% !important;
+            background-position: 0% 50%;
+        }
+        .widget.bg-anim-shift {
+            animation: gwBgShift var(--bg-anim-duration, 6s) var(--bg-anim-ease, ease) infinite;
+        }
+        .widget.bg-anim-flow {
+            animation: gwBgFlow var(--bg-anim-duration, 6s) var(--bg-anim-ease, ease) infinite;
+        }
+        .widget.bg-anim-pulse {
+            background-image: var(--bg-gradient) !important;
+            background-size: 100% 100% !important;
+            animation: gwBgPulse var(--bg-anim-duration, 6s) var(--bg-anim-ease, ease) infinite;
+        }
+        .widget.bg-anim-spin {
+            background: transparent !important;
+        }
+        .widget.bg-anim-spin::before {
+            content: '';
+            position: absolute;
+            inset: -90%;
+            z-index: 0;
+            background: var(--bg-gradient-conic);
+            animation: gwBgSpin var(--bg-anim-duration, 6s) var(--bg-anim-ease, linear) infinite;
+        }
+
+        .widget::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            pointer-events: none;
+            z-index: 2;
+            opacity: calc(var(--bg-grain, 0) * 0.01);
+            background-image: var(--noise-tile);
+            background-size: 140px 140px;
+            mix-blend-mode: overlay;
+        }
+
+        @keyframes gwBgShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes gwBgFlow {
+            0% { background-position: 0% 0%; }
+            50% { background-position: 100% 100%; }
+            100% { background-position: 0% 0%; }
+        }
+        @keyframes gwBgPulse {
+            0%, 100% { filter: brightness(1); background-size: 100% 100%; }
+            50% { filter: brightness(1.18); background-size: 160% 160%; }
+        }
+        @keyframes gwBgSpin {
+            to { transform: rotate(360deg); }
+        }
         
         .content {
             display: flex;
@@ -70,6 +133,7 @@
             justify-content: center;
             gap: 8px;
             position: relative;
+            z-index: 1;
             transition: opacity 0.52s cubic-bezier(0.22, 0.61, 0.36, 1);
         }
         
@@ -775,22 +839,66 @@
             applyWidgetAlign();
             
             // Background
-            if (mode === 'winner' || mode === 'countdown') {
-                if (settings.bg_type_winner === 'image' && settings.bg_image_winner) {
-                    widget.style.background = `url('images/${settings.bg_image_winner}') center/cover`;
-                } else if (settings.bg_type_winner === 'color') {
-                    widget.style.background = settings.winner_bg_1;
-                } else {
-                    widget.style.background = `linear-gradient(135deg, ${settings.winner_bg_1} 0%, ${settings.winner_bg_2} 100%)`;
-                }
+            const DEFAULT_BG_ACTIVE = 'default-active.jpg';
+            const DEFAULT_BG_WINNER = 'default-winner.jpg';
+            const BG_ANIM_CLASSES = ['bg-anim-shift', 'bg-anim-flow', 'bg-anim-pulse', 'bg-anim-spin'];
+            const winnerMode = mode === 'winner' || mode === 'countdown';
+            const t = winnerMode ? (settings.bg_type_winner || 'default') : (settings.bg_type_active || 'default');
+            let colors = winnerMode ? settings.bg_colors_winner : settings.bg_colors_active;
+            if (!Array.isArray(colors) || !colors.length) {
+                colors = winnerMode
+                    ? [settings.winner_bg_1 || '#f39c12', settings.winner_bg_2 || '#e74c3c']
+                    : [settings.bg_color_1 || '#667eea', settings.bg_color_2 || '#764ba2'];
+            }
+            const grain = winnerMode ? (settings.bg_grain_winner ?? 0) : (settings.bg_grain_active ?? 0);
+            widget.style.setProperty('--bg-grain', String(grain));
+
+            const buildLinear = (angle, cols, loop) => {
+                const list = cols.slice();
+                if (loop && list.length) list.push(list[0]);
+                return 'linear-gradient(' + (angle ?? 135) + 'deg, ' + list.join(', ') + ')';
+            };
+            const buildConic = (cols) => {
+                const list = cols.slice();
+                list.push(list[0]);
+                return 'conic-gradient(from 0deg, ' + list.join(', ') + ')';
+            };
+
+            BG_ANIM_CLASSES.forEach((c) => widget.classList.remove(c));
+            widget.style.removeProperty('--bg-anim-duration');
+            widget.style.removeProperty('--bg-anim-ease');
+            widget.style.removeProperty('--bg-gradient');
+            widget.style.removeProperty('--bg-gradient-conic');
+            widget.style.filter = '';
+            widget.style.backgroundSize = '';
+            widget.style.backgroundPosition = '';
+            widget.style.backgroundImage = '';
+            widget.style.animation = '';
+
+            if (t === 'animated_gradient') {
+                const style = ['shift', 'flow', 'pulse', 'spin'].includes(
+                    winnerMode ? settings.bg_anim_style_winner : settings.bg_anim_style_active
+                ) ? (winnerMode ? settings.bg_anim_style_winner : settings.bg_anim_style_active) : 'shift';
+                const speed = winnerMode ? settings.bg_anim_speed_winner : settings.bg_anim_speed_active;
+                const angle = winnerMode ? settings.bg_anim_angle_winner : settings.bg_anim_angle_active;
+                const ease = winnerMode ? settings.bg_anim_ease_winner : settings.bg_anim_ease_active;
+                const loop = style === 'shift' || style === 'flow';
+                widget.style.setProperty('--bg-gradient', buildLinear(angle ?? 135, colors, loop));
+                widget.style.setProperty('--bg-gradient-conic', buildConic(colors));
+                widget.style.setProperty('--bg-anim-duration', (speed || 6) + 's');
+                widget.style.setProperty('--bg-anim-ease', ease || 'ease');
+                widget.style.background = 'transparent';
+                widget.classList.add('bg-anim-' + style);
+            } else if (t === 'default') {
+                const img = winnerMode ? DEFAULT_BG_WINNER : DEFAULT_BG_ACTIVE;
+                widget.style.background = `url('images/${img}') center/cover`;
+            } else if (t === 'image') {
+                const img = winnerMode ? settings.bg_image_winner : settings.bg_image_active;
+                widget.style.background = img ? `url('images/${img}') center/cover` : '#333';
+            } else if (t === 'color') {
+                widget.style.background = colors[0] || '#667eea';
             } else {
-                if (settings.bg_type_active === 'image' && settings.bg_image_active) {
-                    widget.style.background = `url('images/${settings.bg_image_active}') center/cover`;
-                } else if (settings.bg_type_active === 'color') {
-                    widget.style.background = settings.bg_color_1;
-                } else {
-                    widget.style.background = `linear-gradient(135deg, ${settings.bg_color_1} 0%, ${settings.bg_color_2} 100%)`;
-                }
+                widget.style.background = buildLinear(135, colors, false);
             }
             
             // Active elements

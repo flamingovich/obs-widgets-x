@@ -33,9 +33,21 @@ from user_context import (
 )
 
 app = Flask(__name__)
+app.config["TEMPLATES_AUTO_RELOAD"] = True
 BOT_DIR = os.path.dirname(os.path.abspath(__file__))
 SETTINGS_PATH = os.path.join(BOT_DIR, "widget_settings.json")
 CHANNEL_PATH = os.path.join(BOT_DIR, "channel.json")
+
+# Встроенные фоны виджета (не показываются в списке «выбрать картинку»)
+DEFAULT_BG_IMAGE_ACTIVE = "default-active.jpg"
+DEFAULT_BG_IMAGE_WINNER = "default-winner.jpg"
+_BUILTIN_BG_IMAGES = {
+    DEFAULT_BG_IMAGE_ACTIVE,
+    DEFAULT_BG_IMAGE_WINNER,
+    # старые имена до переименования
+    "17490234969549.jpg",
+    "gradient-background-geometric-gradient-wallpaper-abstract-background-premium-gradient_1003782-672.jpg",
+}
 
 # Legacy alias — всегда указывает на розыгрыш текущего пользователя
 class _GiveawayProxy:
@@ -80,14 +92,26 @@ default_widget_settings = {
     "show_winner_name": True,
     "show_winner_avatar": True,
     "show_timer": True,
-    "bg_type_active": "image",
+    "bg_type_active": "default",
     "bg_color_1": "#667eea",
     "bg_color_2": "#764ba2",
-    "bg_image_active": "17490234969549.jpg",
-    "bg_type_winner": "image",
+    "bg_colors_active": ["#667eea", "#764ba2"],
+    "bg_image_active": "",
+    "bg_anim_style_active": "shift",
+    "bg_anim_speed_active": 6,
+    "bg_anim_angle_active": 135,
+    "bg_anim_ease_active": "ease",
+    "bg_grain_active": 25,
+    "bg_type_winner": "default",
     "winner_bg_1": "#f39c12",
     "winner_bg_2": "#e74c3c",
-    "bg_image_winner": "gradient-background-geometric-gradient-wallpaper-abstract-background-premium-gradient_1003782-672.jpg",
+    "bg_colors_winner": ["#f39c12", "#e74c3c"],
+    "bg_image_winner": "",
+    "bg_anim_style_winner": "shift",
+    "bg_anim_speed_winner": 6,
+    "bg_anim_angle_winner": 135,
+    "bg_anim_ease_winner": "ease",
+    "bg_grain_winner": 25,
     "text_color_label": "#ffffff",
     "text_color_keyword": "#ffffff",
     "text_color_separator": "#e3e3e3",
@@ -1053,6 +1077,70 @@ def _normalized_widget_settings(data=None):
     if align not in ("left", "center", "right"):
         align = "left"
     base["widget_align_h"] = align
+
+    # Старые пресеты с «выбранной» дефолтной картинкой → тип «по умолчанию»
+    if base.get("bg_type_active") == "image" and (base.get("bg_image_active") or "") in _BUILTIN_BG_IMAGES:
+        base["bg_type_active"] = "default"
+        base["bg_image_active"] = ""
+    if base.get("bg_type_winner") == "image" and (base.get("bg_image_winner") or "") in _BUILTIN_BG_IMAGES:
+        base["bg_type_winner"] = "default"
+        base["bg_image_winner"] = ""
+    _bg_types = ("default", "gradient", "color", "image", "animated_gradient")
+    _anim_styles = ("shift", "flow", "pulse", "spin")
+    _anim_eases = ("ease", "linear", "ease-in-out")
+    if base.get("bg_type_active") not in _bg_types:
+        base["bg_type_active"] = "default"
+    if base.get("bg_type_winner") not in _bg_types:
+        base["bg_type_winner"] = "default"
+    if base.get("bg_anim_style_active") not in _anim_styles:
+        base["bg_anim_style_active"] = "shift"
+    if base.get("bg_anim_style_winner") not in _anim_styles:
+        base["bg_anim_style_winner"] = "shift"
+    if base.get("bg_anim_ease_active") not in _anim_eases:
+        base["bg_anim_ease_active"] = "ease"
+    if base.get("bg_anim_ease_winner") not in _anim_eases:
+        base["bg_anim_ease_winner"] = "ease"
+    base["bg_anim_speed_active"] = _clamp_int(base.get("bg_anim_speed_active"), 6, 1, 30)
+    base["bg_anim_speed_winner"] = _clamp_int(base.get("bg_anim_speed_winner"), 6, 1, 30)
+    base["bg_anim_angle_active"] = _clamp_int(base.get("bg_anim_angle_active"), 135, 0, 360)
+    base["bg_anim_angle_winner"] = _clamp_int(base.get("bg_anim_angle_winner"), 135, 0, 360)
+    base["bg_grain_active"] = _clamp_int(base.get("bg_grain_active"), 25, 0, 100)
+    base["bg_grain_winner"] = _clamp_int(base.get("bg_grain_winner"), 25, 0, 100)
+
+    def _norm_colors(raw, c1, c2, fallback):
+        colors = []
+        if isinstance(raw, list):
+            for item in raw[:8]:
+                s = str(item or "").strip()
+                if re.match(r"^#[0-9A-Fa-f]{6}$", s):
+                    colors.append(s.lower())
+        if len(colors) < 1:
+            a = str(c1 or "").strip()
+            b = str(c2 or "").strip()
+            if re.match(r"^#[0-9A-Fa-f]{6}$", a):
+                colors.append(a.lower())
+            if re.match(r"^#[0-9A-Fa-f]{6}$", b) and b.lower() not in colors:
+                colors.append(b.lower())
+        if len(colors) < 1:
+            colors = list(fallback)
+        return colors
+
+    base["bg_colors_active"] = _norm_colors(
+        base.get("bg_colors_active"),
+        base.get("bg_color_1"),
+        base.get("bg_color_2"),
+        ["#667eea", "#764ba2"],
+    )
+    base["bg_colors_winner"] = _norm_colors(
+        base.get("bg_colors_winner"),
+        base.get("winner_bg_1"),
+        base.get("winner_bg_2"),
+        ["#f39c12", "#e74c3c"],
+    )
+    base["bg_color_1"] = base["bg_colors_active"][0]
+    base["bg_color_2"] = base["bg_colors_active"][1] if len(base["bg_colors_active"]) > 1 else base["bg_colors_active"][0]
+    base["winner_bg_1"] = base["bg_colors_winner"][0]
+    base["winner_bg_2"] = base["bg_colors_winner"][1] if len(base["bg_colors_winner"]) > 1 else base["bg_colors_winner"][0]
     return base
 
 
@@ -1104,12 +1192,15 @@ def get_fonts():
 def get_images():
     images_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'images')
     images = []
-    
+
     if os.path.exists(images_dir):
         for file in os.listdir(images_dir):
-            if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
-                images.append(file)
-    
+            if not file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
+                continue
+            if file in _BUILTIN_BG_IMAGES or file.startswith('default-'):
+                continue
+            images.append(file)
+
     return jsonify(images)
 
 

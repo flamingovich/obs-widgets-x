@@ -4,197 +4,478 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OBS Dock — розыгрыш + колесо</title>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        * { box-sizing: border-box; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            margin: 0;
-            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-            font-size: 12px;
-            background: #141418;
-            color: #e8e8ec;
-            line-height: 1.35;
-            padding: 10px 10px 14px;
+            font-family: 'Google Sans', 'Roboto', sans-serif;
+            font-size: 13px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            line-height: 1.4;
+            padding: 12px;
+            min-height: 100vh;
         }
-        h1 {
-            font-size: 14px;
-            font-weight: 600;
-            margin: 0 0 8px;
-            color: #fff;
-        }
+
         .hint {
-            font-size: 11px;
+            font-size: 12px;
             color: #888;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
+
         .section {
-            border: 1px solid #2c2c34;
+            background: #252525;
+            border: 1px solid #333;
             border-radius: 8px;
-            padding: 10px;
+            padding: 12px 14px;
+            margin-bottom: 12px;
+        }
+
+        .section-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
             margin-bottom: 10px;
-            background: #1a1a20;
         }
+
+        .section-head .title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .section-icon {
+            width: 18px;
+            height: 18px;
+            fill: #7c4dff;
+            flex-shrink: 0;
+        }
+
         .section h2 {
-            margin: 0 0 8px;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            color: #9b8fd9;
+            margin: 0;
+            font-size: 13px;
+            font-weight: 500;
+            color: #fff;
+            letter-spacing: 0;
+            text-transform: none;
         }
+
         label {
             display: block;
-            font-size: 10px;
-            color: #888;
-            margin: 6px 0 2px;
+            font-size: 11px;
+            font-weight: 500;
+            color: #666;
+            margin: 8px 0 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
         }
+
         input[type="text"], input[type="url"] {
             width: 100%;
-            padding: 6px 8px;
-            border-radius: 5px;
-            border: 1px solid #333;
-            background: #0e0e12;
-            color: #eee;
-            font-size: 12px;
-        }
-        .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
-        .row > button { flex: 1; min-width: 72px; }
-        button {
-            padding: 6px 8px;
-            border-radius: 5px;
+            padding: 8px 10px;
+            border-radius: 6px;
             border: 1px solid #444;
-            background: #2a2a32;
-            color: #eee;
-            font-size: 11px;
+            background: #1e1e1e;
+            color: #e0e0e0;
+            font-size: 13px;
+            font-family: inherit;
+        }
+        input[type="text"]:focus, input[type="url"]:focus {
+            outline: none;
+            border-color: #7c4dff;
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-top: 8px;
+        }
+        .row > button { flex: 1; min-width: 72px; }
+
+        button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            background: #333;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        button .btn-ico {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+            flex-shrink: 0;
+        }
+        button:hover:not(:disabled) { background: #444; }
+        button:disabled { opacity: 0.45; cursor: not-allowed; }
+        button.primary { background: #7c4dff; color: #fff; }
+        button.primary:hover:not(:disabled) { background: #8e63ff; }
+        button.danger { background: #5c2b2b; color: #ffc9c9; }
+        button.danger:hover:not(:disabled) { background: #6e3434; }
+        button.outline {
+            background: transparent;
+            border: 1px solid #444;
+            color: #999;
+        }
+        button.outline:hover:not(:disabled) { border-color: #666; color: #fff; }
+
+        .check {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            font-size: 13px;
+            font-weight: 400;
+            color: #bbb;
+            text-transform: none;
+            letter-spacing: 0;
             cursor: pointer;
         }
-        button:hover:not(:disabled) { background: #36363f; border-color: #555; }
-        button:disabled { opacity: 0.45; cursor: not-allowed; }
-        button.primary { background: #4a3f7a; border-color: #6b5cb5; }
-        button.danger { background: #5a2a2a; border-color: #844; }
-        .check { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 11px; color: #bbb; }
+        .check input { width: 15px; height: 15px; accent-color: #7c4dff; }
+
         .status {
-            margin-top: 8px;
-            padding: 6px 8px;
-            border-radius: 5px;
-            background: #0e0e12;
-            font-size: 11px;
-            color: #9a9;
+            margin-top: 10px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            background: #1e1e1e;
+            border: 1px solid #2a2a2a;
+            font-size: 12px;
+            color: #9a9a9a;
             min-height: 18px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
         }
-        .status.err { color: #f88; }
+        .status .meta-ico {
+            width: 15px;
+            height: 15px;
+            fill: #7c4dff;
+            flex-shrink: 0;
+        }
+        .status #gwMetaText { color: #9a9a9a; }
+        .status #gwCount {
+            color: #fff;
+            font-weight: 500;
+            display: inline-block;
+            transition: color 0.35s ease, opacity 0.35s ease;
+        }
+        .status #gwCount.pop {
+            animation: gwCountFlash 0.55s ease;
+        }
+        @keyframes gwCountFlash {
+            0% { color: #fff; opacity: 1; }
+            25% { color: #b39ddb; opacity: 0.55; }
+            100% { color: #fff; opacity: 1; }
+        }
+        .status.err { color: #f88; border-color: #5c2b2b; }
+
         .winner-only { display: none; }
         .winner-only.show { display: block; }
+
         .timer-big {
-            font-family: ui-monospace, monospace;
-            font-size: 20px;
+            font-family: 'Google Sans', 'Roboto', ui-monospace, monospace;
+            font-size: 22px;
             font-weight: 700;
             margin: 6px 0;
+            color: #fff;
         }
-        .timer-big.stopped { color: #7d7; }
-        .timer-big.wait { color: #fc6; }
+        .timer-big.stopped { color: #4caf50; }
+        .timer-big.wait { color: #ffb74d; }
+
         #msgList {
             max-height: 140px;
             overflow-y: auto;
-            margin-top: 6px;
+            margin-top: 10px;
             padding: 0;
             list-style: none;
+            background: #1e1e1e;
+            border-radius: 6px;
+            border: 1px solid #2a2a2a;
         }
         #msgList li {
-            padding: 4px 6px;
-            border-bottom: 1px solid #2a2a32;
-            font-size: 11px;
+            padding: 6px 10px;
+            border-bottom: 1px solid #2a2a2a;
+            font-size: 12px;
+            color: #e0e0e0;
         }
-        #msgList .t { color: #888; margin-right: 6px; }
+        #msgList li:last-child { border-bottom: none; }
+        #msgList .t { color: #888; margin-right: 6px; font-weight: 400; }
+
         .dot {
             display: inline-block;
-            width: 7px;
-            height: 7px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
             background: #444;
-            margin-right: 5px;
+            margin-right: 6px;
             vertical-align: middle;
         }
         .dot.on { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+
+        .icon-btn {
+            flex: 0 0 auto;
+            width: 30px;
+            height: 30px;
+            min-width: 30px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            background: #333;
+            border: none;
+        }
+        .icon-btn svg { width: 16px; height: 16px; fill: #999; }
+        .icon-btn:hover { background: #444; }
+        .icon-btn:hover svg { fill: #fff; }
+        .icon-btn.active { background: rgba(124, 77, 255, 0.25); }
+        .icon-btn.active svg { fill: #7c4dff; }
+
+        .settings-panel {
+            display: none;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 10px;
+            margin: 0 0 10px;
+            background: #1e1e1e;
+        }
+        .settings-panel.open { display: block; }
+
+        .section.extras {
+            padding: 0;
+            overflow: hidden;
+        }
+        .extras-toggle {
+            width: 100%;
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            padding: 8px 12px;
+            margin: 0;
+            font-size: 13px;
+            font-weight: 500;
+            font-family: inherit;
+            line-height: 1.2;
+            text-transform: none;
+            letter-spacing: 0;
+            color: #9a86d8;
+            cursor: pointer;
+        }
+        .extras-toggle:hover { background: #2a2a2a; color: #b39ddb; }
+        .extras-toggle-left {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .extras-toggle-left .section-icon {
+            width: 16px;
+            height: 16px;
+        }
+        .extras-chevron {
+            width: 16px;
+            height: 16px;
+            fill: #888;
+            transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), fill 0.25s ease;
+        }
+        .extras.open .extras-chevron { transform: rotate(180deg); fill: #bbb; }
+        .extras-body {
+            display: grid;
+            grid-template-rows: 0fr;
+            overflow: hidden;
+            transition: grid-template-rows 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .extras.open .extras-body { grid-template-rows: 1fr; }
+        .extras-inner {
+            overflow: hidden;
+            min-height: 0;
+        }
+        .extras-pad {
+            padding: 0 12px 10px;
+        }
+        .extras-inner .subhead {
+            margin: 10px 0 6px;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .extras-inner .subhead .section-icon {
+            width: 14px;
+            height: 14px;
+            fill: #7c4dff;
+        }
+        .extras-inner .subhead:first-child { margin-top: 4px; }
+
+        #winnerName { font-weight: 500; font-size: 14px; color: #fff; margin-bottom: 4px; }
+        #timerLabel { font-size: 12px; color: #888; }
     </style>
 </head>
 <body>
-    <h1>OBS Dock</h1>
-
-    <div class="section">
-        <h2>Розыгрыш YouTube</h2>
-        <p class="hint" style="margin:0 0 6px;"><span class="dot" id="gwDot"></span><span id="gwLine">—</span></p>
-        <label>Канал (@handle или ссылка)</label>
-        <input type="text" id="channelInput" placeholder="@channel" autocomplete="off">
-        <div class="row">
-            <button type="button" id="btnSaveChannel">Сохранить ссылку</button>
-            <button type="button" id="btnReconnect">Переподключить чат</button>
+    <div class="section" id="giveawaySection">
+        <div class="section-head">
+            <div class="title-wrap">
+                <svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.58 7.19c-.23-.86-.91-1.54-1.77-1.77C18.25 5 12 5 12 5s-6.25 0-7.81.42c-.86.23-1.54.91-1.77 1.77C2 8.75 2 12 2 12s0 3.25.42 4.81c.23.86.91 1.54 1.77 1.77C5.75 19 12 19 12 19s6.25 0 7.81-.42c.86-.23 1.54-.91 1.77-1.77C22 15.25 22 12 22 12s0-3.25-.42-4.81zM10 15.5v-7l6 3.5-6 3.5z"/></svg>
+                <h2>Розыгрыш YouTube</h2>
+            </div>
+            <button type="button" class="icon-btn" id="btnSettings" title="Настройки" aria-label="Настройки" aria-expanded="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+            </button>
         </div>
-        <label>Ключевое слово</label>
+
+        <div class="settings-panel" id="settingsPanel">
+            <p class="hint" style="margin:0 0 6px;"><span class="dot" id="gwDot"></span><span id="gwLine">—</span></p>
+            <label>Канал (@handle или ссылка)</label>
+            <input type="text" id="channelInput" placeholder="@channel" autocomplete="off">
+            <div class="row">
+                <button type="button" id="btnSaveChannel">Сохранить ссылку</button>
+                <button type="button" id="btnReconnect">Переподключить чат</button>
+            </div>
+        </div>
+
         <input type="text" id="keywordInput" placeholder="Кодовое слово" autocomplete="off">
-        <label class="check"><input type="checkbox" id="acceptAny"> Засчитывать любое сообщение</label>
-        <div class="row">
-            <button type="button" id="btnApplyKeyword">Применить слово</button>
+        <label class="check" id="acceptAnyWrap" style="display:none;"><input type="checkbox" id="acceptAny"> Засчитывать любое сообщение</label>
+        <div class="row" id="rowIdle">
+            <button type="button" class="primary" id="btnStart">
+                <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                Запуск
+            </button>
+            <button type="button" id="btnStartTest">
+                <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.8 18.4 14 10.67V6.5l1.35-1.69c.26-.33.04-.81-.39-.81H9.04c-.43 0-.65.48-.39.81L10 6.5v4.17L4.2 18.4c-.49.66-.02 1.6.8 1.6h14c.82 0 1.29-.94.8-1.6z"/></svg>
+                Тест запуск
+            </button>
         </div>
-        <div class="row">
-            <button type="button" class="primary" id="btnStart">Запуск</button>
-            <button type="button" id="btnStartTest">Тест запуск</button>
-            <button type="button" id="btnAddTestParticipant" style="display:none;">Добавить участника</button>
-            <button type="button" id="btnStop">Стоп</button>
-            <button type="button" class="primary" id="btnPick">Победитель</button>
+        <div class="row" id="rowLive" style="display:none;">
+            <button type="button" id="btnAddTestParticipant" style="display:none;">
+                <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                Добавить участника
+            </button>
+            <button type="button" class="primary" id="btnPick">
+                <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/></svg>
+                Победитель
+            </button>
         </div>
-        <div class="row">
-            <button type="button" id="btnReroll">Реролл</button>
-            <button type="button" class="danger" id="btnResetGw">Сброс</button>
+        <div class="row" id="rowLive2" style="display:none;">
+            <button type="button" id="btnReroll">
+                <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+                Реролл
+            </button>
+            <button type="button" class="danger" id="btnResetGw">
+                <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                Сброс
+            </button>
         </div>
-        <div class="status" id="gwMeta">Участников: — · Ключ: —</div>
-    </div>
-
-    <div class="section">
-        <h2>Колесо</h2>
-        <div class="row">
-            <button type="button" class="primary" id="btnSpin">Крутить</button>
-            <button type="button" id="btnWidgetShow">Показать виджет</button>
-            <button type="button" id="btnWidgetHide">Скрыть виджет</button>
-        </div>
-        <div class="row">
-            <button type="button" id="btnResetWheel">Сброс колеса</button>
-        </div>
-    </div>
-
-    <div class="section">
-        <h2>Карта</h2>
-        <div class="row">
-            <button type="button" id="btnCardShow">Показать (рубашка)</button>
-            <button type="button" id="btnCardReveal">Показать результат</button>
-            <button type="button" id="btnCardHide">Скрыть</button>
+        <div class="status" id="gwMeta">
+            <svg class="meta-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+            <span id="gwMetaText">Участников: <span id="gwCount">— чел.</span></span>
         </div>
     </div>
 
     <div class="section winner-only" id="winnerBlock">
-        <h2>После выбора победителя</h2>
-        <div id="winnerName" style="font-weight:700;font-size:13px;margin-bottom:4px;"></div>
-        <div id="timerLabel" style="font-size:11px;color:#888;">Таймер ответа</div>
+        <div class="section-head">
+            <div class="title-wrap">
+                <svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12zM7 9h2v2H7V9zm4 0h2v2h-2V9zm4 0h2v2h-2V9z"/></svg>
+                <h2>Сообщения победителя</h2>
+            </div>
+        </div>
+        <div id="winnerName"></div>
+        <div id="timerLabel">Таймер ответа</div>
         <div class="timer-big wait" id="timerValue">00:00</div>
-        <div id="timerHint" style="font-size:11px;color:#888;">—</div>
-        <label style="margin-top:8px;">Сообщения победителя</label>
         <ul id="msgList"></ul>
     </div>
 
-    <div class="status" id="dockStatus"></div>
+    <div class="section extras" id="extrasSection">
+        <button type="button" class="extras-toggle" id="btnExtras" aria-expanded="false">
+            <span class="extras-toggle-left">
+                <svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v8h8V3H3zm6 6H5V5h4v4zm-6 4v8h8v-8H3zm6 6H5v-4h4v4zm4-16v8h8V3h-8zm6 6h-4V5h4v4zm-6 4v8h8v-8h-8zm6 6h-4v-4h4v4z"/></svg>
+                <span>Дополнительно</span>
+            </span>
+            <svg class="extras-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+        </button>
+        <div class="extras-body">
+            <div class="extras-inner">
+            <div class="extras-pad">
+                <div class="subhead">
+                    <svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+                    Колесо
+                </div>
+                <div class="row">
+                    <button type="button" class="primary" id="btnSpin">
+                        <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+                        Крутить
+                    </button>
+                    <button type="button" id="btnWidgetShow">
+                        <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                        Показать виджет
+                    </button>
+                    <button type="button" id="btnWidgetHide">
+                        <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78 3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></svg>
+                        Скрыть виджет
+                    </button>
+                </div>
+                <div class="row">
+                    <button type="button" id="btnResetWheel">
+                        <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+                        Сброс колеса
+                    </button>
+                </div>
+                <div class="subhead">
+                    <svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5v14h18V5H3zm16 12H5v-3.33L7.79 10l2.96 3.7L14.5 9l4.5 5.67V17z"/></svg>
+                    Карта
+                </div>
+                <div class="row">
+                    <button type="button" id="btnCardShow">
+                        <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5v14h18V5H3zm16 6H5V7h14v4z"/></svg>
+                        Показать (рубашка)
+                    </button>
+                    <button type="button" id="btnCardReveal">
+                        <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5v14h18V5H3zm16 12H5v-3.33L7.79 10l2.96 3.7L14.5 9l4.5 5.67V17z"/></svg>
+                        Показать результат
+                    </button>
+                    <button type="button" id="btnCardHide">
+                        <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                        Скрыть
+                    </button>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
 
     <script>
         const CARD_RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
         const CARD_SUITS = ['diamonds','hearts','clubs','spades'];
         let cardRound = null;
         let lastMsgSig = '';
+        let lastGwCount = null;
 
         function wheelBase() {
             return window.location.origin;
         }
 
         function setStatus(el, text, isErr) {
-            const n = el || document.getElementById('dockStatus');
-            n.textContent = text || '';
-            n.classList.toggle('err', !!isErr);
+            if (isErr && text) alert(text);
         }
 
         function formatTime(seconds) {
@@ -248,25 +529,14 @@
             }
         });
 
-        document.getElementById('btnApplyKeyword').addEventListener('click', async () => {
-            const keyword = document.getElementById('keywordInput').value.trim();
-            const accept_any_message = document.getElementById('acceptAny').checked;
-            await gwFetch('/api/giveaway-update', {
-                method: 'POST',
-                body: JSON.stringify({ keyword, accept_any_message })
-            });
-            setStatus(null, 'Ключевое слово / режим обновлены');
-        });
-
         document.getElementById('btnStart').addEventListener('click', async () => {
             const channel = document.getElementById('channelInput').value.trim();
             const keyword = document.getElementById('keywordInput').value.trim();
-            const accept_any_message = document.getElementById('acceptAny').checked;
             if (!channel) { setStatus(null, 'Укажите канал', true); return; }
-            if (!accept_any_message && !keyword) { setStatus(null, 'Ключевое слово или «любое сообщение»', true); return; }
+            if (!keyword) { setStatus(null, 'Укажите кодовое слово', true); return; }
             const res = await gwFetch('/api/start', {
                 method: 'POST',
-                body: JSON.stringify({ channel, keyword, accept_any_message })
+                body: JSON.stringify({ channel, keyword, accept_any_message: false })
             });
             const d = await res.json().catch(() => ({}));
             if (!d.success) setStatus(null, d.error || 'Ошибка запуска', true);
@@ -275,14 +545,22 @@
 
         document.getElementById('btnStartTest').addEventListener('click', async () => {
             const keyword = document.getElementById('keywordInput').value.trim();
-            const accept_any_message = document.getElementById('acceptAny').checked;
             const res = await gwFetch('/api/start-test', {
                 method: 'POST',
-                body: JSON.stringify({ keyword, accept_any_message })
+                body: JSON.stringify({ keyword, accept_any_message: false })
             });
             const d = await res.json().catch(() => ({}));
             if (!d.success) setStatus(null, d.error || 'Ошибка запуска теста', true);
             else setStatus(null, 'Тестовый розыгрыш запущен');
+        });
+
+        document.getElementById('acceptAny').addEventListener('change', async () => {
+            const accept_any_message = document.getElementById('acceptAny').checked;
+            const keyword = document.getElementById('keywordInput').value.trim();
+            await gwFetch('/api/giveaway-update', {
+                method: 'POST',
+                body: JSON.stringify({ accept_any_message, keyword })
+            });
         });
 
         document.getElementById('btnAddTestParticipant').addEventListener('click', async () => {
@@ -290,11 +568,6 @@
             const d = await res.json().catch(() => ({}));
             if (!d.success) setStatus(null, d.error || 'Не удалось добавить участника', true);
             else setStatus(null, 'Тестовый участник добавлен');
-        });
-
-        document.getElementById('btnStop').addEventListener('click', async () => {
-            await gwFetch('/api/stop', { method: 'POST', body: '{}' });
-            setStatus(null, 'Стоп');
         });
 
         document.getElementById('btnPick').addEventListener('click', async () => {
@@ -460,22 +733,30 @@
                     line.textContent = 'Не активен';
                 }
 
-                document.getElementById('gwMeta').textContent =
-                    'Участников: ' + d.count + ' · Ключ: ' + (d.keyword || '—') +
-                    (d.accept_any_message ? ' (любое сообщение)' : '');
+                const countEl = document.getElementById('gwCount');
+                const nextCount = Number(d.count) || 0;
+                countEl.textContent = nextCount + ' чел.';
+                if (lastGwCount != null && nextCount > lastGwCount) {
+                    countEl.classList.remove('pop');
+                    void countEl.offsetWidth;
+                    countEl.classList.add('pop');
+                }
+                lastGwCount = nextCount;
 
+                const live = !!(d.is_active || d.winner);
                 const kwEl = document.getElementById('keywordInput');
                 if (document.activeElement !== kwEl) kwEl.value = d.keyword || '';
                 const accEl = document.getElementById('acceptAny');
                 if (document.activeElement !== accEl) accEl.checked = !!d.accept_any_message;
+                document.getElementById('acceptAnyWrap').style.display = live ? '' : 'none';
+                document.getElementById('rowIdle').style.display = live ? 'none' : '';
+                document.getElementById('rowLive').style.display = live ? '' : 'none';
+                document.getElementById('rowLive2').style.display = live ? '' : 'none';
 
-                document.getElementById('btnStart').disabled = !!(d.is_active || d.winner);
-                document.getElementById('btnStartTest').disabled = !!(d.is_active || d.winner);
-                document.getElementById('btnStop').disabled = !d.is_active;
                 document.getElementById('btnPick').disabled = d.count === 0 || !!d.winner;
                 document.getElementById('btnReroll').disabled = !d.winner || d.count === 0;
                 const addTestBtn = document.getElementById('btnAddTestParticipant');
-                if (d.is_test_mode) {
+                if (live && d.is_test_mode) {
                     addTestBtn.style.display = '';
                     addTestBtn.disabled = d.countdown > 0;
                 } else {
@@ -487,15 +768,8 @@
                     wb.classList.add('show');
                     document.getElementById('winnerName').textContent = d.winner;
                     const tv = document.getElementById('timerValue');
-                    const th = document.getElementById('timerHint');
                     tv.textContent = formatTime(d.timer_seconds);
-                    if (d.timer_stopped) {
-                        tv.className = 'timer-big stopped';
-                        th.textContent = 'Время до первого сообщения победителя (зафиксировано)';
-                    } else {
-                        tv.className = 'timer-big wait';
-                        th.textContent = 'Ждём первое сообщение победителя в чате…';
-                    }
+                    tv.className = d.timer_stopped ? 'timer-big stopped' : 'timer-big wait';
                     const sig = messagesSignature(d);
                     if (sig !== lastMsgSig) {
                         lastMsgSig = sig;
@@ -521,6 +795,29 @@
         }
 
         (function init() {
+            const btnSettings = document.getElementById('btnSettings');
+            const settingsPanel = document.getElementById('settingsPanel');
+            btnSettings.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const open = settingsPanel.classList.toggle('open');
+                btnSettings.classList.toggle('active', open);
+                btnSettings.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+            document.addEventListener('click', (e) => {
+                if (!settingsPanel.classList.contains('open')) return;
+                if (settingsPanel.contains(e.target) || btnSettings.contains(e.target)) return;
+                settingsPanel.classList.remove('open');
+                btnSettings.classList.remove('active');
+                btnSettings.setAttribute('aria-expanded', 'false');
+            });
+
+            const extras = document.getElementById('extrasSection');
+            const btnExtras = document.getElementById('btnExtras');
+            btnExtras.addEventListener('click', () => {
+                const open = extras.classList.toggle('open');
+                btnExtras.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+
             loadChannel();
             pollGiveaway();
             setInterval(pollGiveaway, 500);
