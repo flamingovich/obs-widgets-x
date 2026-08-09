@@ -37,3 +37,6 @@ dep-calendar/.vite/
 
 # Local backups
 backups/
+
+# Server-only Python runtime (do not rsync --delete over this)
+runtime/
