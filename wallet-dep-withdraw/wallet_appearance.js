@@ -112,9 +112,10 @@
     if (dep) dep.style.display = s.show_dep === false ? "none" : "";
     if (out) out.style.display = s.show_out === false ? "none" : "";
     if (likes) {
-      // runtime hide из дока важнее конструкторного show_likes
+      // runtime hide из дока: класс likes-visually-hidden (место в layout сохраняется)
+      // конструкторный show_likes=false — полностью убрать блок
       if (likes.classList.contains("likes-visually-hidden")) {
-        likes.style.display = "none";
+        likes.style.display = "";
       } else {
         likes.style.display = s.show_likes === false ? "none" : "";
       }

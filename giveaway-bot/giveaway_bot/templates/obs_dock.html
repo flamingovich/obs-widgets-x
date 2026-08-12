@@ -386,58 +386,6 @@
 
         #winnerName { font-weight: 500; font-size: 14px; color: #fff; margin-bottom: 4px; }
         #timerLabel { font-size: 12px; color: #888; }
-
-        .dock-roulette {
-            display: none;
-            margin-top: 10px;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .dock-roulette.show { display: flex; }
-        .dock-roulette-frame {
-            position: relative;
-            height: 32px;
-            overflow: hidden;
-            border-radius: 6px;
-            background: #1e1e1e;
-            border: 1px solid #333;
-        }
-        .dock-roulette-track {
-            will-change: transform;
-        }
-        .dock-roulette-item {
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0 28px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #fff;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .dock-roulette-marker {
-            position: absolute;
-            top: 50%;
-            width: 12px;
-            height: 10px;
-            clip-path: polygon(0% 0%, 100% 50%, 0% 100%);
-            background: linear-gradient(135deg, #ffbe3b 0%, #ff8a39 45%, #b39ddb 100%);
-            z-index: 2;
-            transform: translateY(-50%);
-        }
-        .dock-roulette-marker.left { left: 6px; }
-        .dock-roulette-marker.right {
-            right: 6px;
-            transform: translateY(-50%) scaleX(-1);
-        }
-        .dock-roulette-hint {
-            font-size: 11px;
-            color: #888;
-            text-align: center;
-        }
     </style>
 </head>
 <body>
@@ -510,14 +458,6 @@
         <div class="status" id="gwMeta">
             <svg class="meta-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
             <span id="gwMetaText">Участников: <span id="gwCount">— чел.</span></span>
-        </div>
-        <div class="dock-roulette" id="dockRoulette" aria-live="polite">
-            <div class="dock-roulette-frame">
-                <span class="dock-roulette-marker left" aria-hidden="true"></span>
-                <div class="dock-roulette-track" id="dockRouletteTrack"></div>
-                <span class="dock-roulette-marker right" aria-hidden="true"></span>
-            </div>
-            <div class="dock-roulette-hint" id="dockRouletteHint">Выбор победителя…</div>
         </div>
     </div>
 
@@ -599,11 +539,6 @@
         let lastMsgSig = '';
         let lastGwCount = null;
         let actionBusy = null; // start | startTest | pick | reroll
-        let dockRollState = 'idle'; // idle | rolling | done
-        let dockRollFor = '';
-        let dockActiveRollId = '';
-        let dockRollFinishTimer = 0;
-        const DOCK_ROLL_H = 32;
 
         function setBtnLabel(id, text) {
             const btn = document.getElementById(id);
@@ -651,115 +586,6 @@
             actionBusy = null;
             ['btnStart', 'btnStartTest', 'btnPick', 'btnReroll'].forEach(restoreBtnLabel);
             return was;
-        }
-
-        function renderDockTrack(names) {
-            const track = document.getElementById('dockRouletteTrack');
-            if (!track) return;
-            track.innerHTML = '';
-            (names || []).forEach((name) => {
-                const row = document.createElement('div');
-                row.className = 'dock-roulette-item';
-                row.textContent = String(name || '');
-                track.appendChild(row);
-            });
-        }
-
-        function showDockRoulette(hint) {
-            const box = document.getElementById('dockRoulette');
-            const h = document.getElementById('dockRouletteHint');
-            if (box) box.classList.add('show');
-            if (h && hint) h.textContent = hint;
-        }
-
-        function hideDockRoulette() {
-            const box = document.getElementById('dockRoulette');
-            if (box) box.classList.remove('show');
-            dockRollState = 'idle';
-            dockRollFor = '';
-            dockActiveRollId = '';
-            if (dockRollFinishTimer) {
-                clearTimeout(dockRollFinishTimer);
-                dockRollFinishTimer = 0;
-            }
-            const track = document.getElementById('dockRouletteTrack');
-            if (track) {
-                track.style.transition = 'none';
-                track.style.transitionDelay = '0ms';
-                track.style.transform = 'translateY(0)';
-                track.innerHTML = '';
-            }
-        }
-
-        function startDockWinnerRollFromServer(roll, serverNowMs, hint) {
-            const track = document.getElementById('dockRouletteTrack');
-            if (!track || !roll || !roll.id || !Array.isArray(roll.rows)) return;
-            if (dockActiveRollId === roll.id && dockRollState !== 'idle') return;
-
-            dockActiveRollId = roll.id;
-            dockRollState = 'rolling';
-            dockRollFor = String(roll.winner || '');
-            showDockRoulette(hint || 'Выбор победителя…');
-            renderDockTrack(roll.rows);
-
-            const target = Math.max(0, Number(roll.winner_index) || 0) * DOCK_ROLL_H;
-            const duration = Math.max(1000, Number(roll.duration_ms) || 5000);
-            const started = Number(roll.started_at_ms) || Date.now();
-            const serverNow = Number(serverNowMs) || Date.now();
-            const elapsed = Math.max(0, Math.min(duration, serverNow - started));
-            const easing = roll.easing || 'cubic-bezier(0.12, 0.82, 0.18, 1)';
-
-            const finish = () => {
-                if (dockRollState === 'done' && dockActiveRollId === roll.id) return;
-                track.removeEventListener('transitionend', finish);
-                if (dockRollFinishTimer) {
-                    clearTimeout(dockRollFinishTimer);
-                    dockRollFinishTimer = 0;
-                }
-                track.style.transitionDelay = '0ms';
-                dockRollState = 'done';
-                const finalName = String(roll.winner || 'Победитель');
-                renderDockTrack([finalName, finalName, finalName]);
-                track.style.transition = 'none';
-                track.style.transform = 'translateY(0)';
-                const h = document.getElementById('dockRouletteHint');
-                if (h) h.textContent = 'Победитель: ' + finalName;
-            };
-
-            track.style.transition = 'none';
-            track.style.transitionDelay = '0ms';
-            track.style.transform = 'translateY(0)';
-            void track.offsetWidth;
-
-            if (elapsed >= duration - 20) {
-                track.style.transform = `translateY(-${target}px)`;
-                finish();
-                return;
-            }
-
-            track.style.transition = `transform ${duration}ms ${easing}`;
-            track.style.transitionDelay = `-${elapsed}ms`;
-            track.style.transform = `translateY(-${target}px)`;
-            track.addEventListener('transitionend', finish, { once: true });
-            if (dockRollFinishTimer) clearTimeout(dockRollFinishTimer);
-            dockRollFinishTimer = setTimeout(finish, Math.max(0, duration - elapsed) + 80);
-        }
-
-        function syncDockRoulette(d) {
-            const selecting = (Number(d.countdown) || 0) > 0;
-            const roll = d.roll;
-            const winner = d.winner || '';
-            if (roll && roll.id && (selecting || winner)) {
-                const hint = actionBusy === 'reroll' ? 'Реролл…' : 'Выбор победителя…';
-                startDockWinnerRollFromServer(roll, d.server_now_ms, hint);
-                return;
-            }
-            if (!selecting && !winner && dockRollState !== 'idle') {
-                hideDockRoulette();
-            }
-            if (!selecting && !d.is_active && !winner) {
-                hideDockRoulette();
-            }
         }
 
         function wheelBase() {
@@ -1077,9 +903,6 @@
                     setStatus(null, d.error || 'Реролл невозможен', true);
                 } else {
                     setStatus(null, 'Реролл…');
-                    dockRollState = 'idle';
-                    dockRollFor = '';
-                    dockActiveRollId = '';
                 }
             } catch (_) {
                 clearActionBusy();
@@ -1090,7 +913,6 @@
         document.getElementById('btnResetGw').addEventListener('click', async () => {
             if (!confirm('Сбросить розыгрыш полностью?')) return;
             clearActionBusy();
-            hideDockRoulette();
             await gwFetch('/api/reset', { method: 'POST', body: '{}' });
             document.getElementById('keywordInput').value = '';
             setStatus(null, 'Сброс');
@@ -1318,14 +1140,6 @@
                 } else if (actionBusy === 'pick' || actionBusy === 'reroll') {
                     document.getElementById('btnPick').disabled = true;
                     document.getElementById('btnReroll').disabled = true;
-                }
-
-                syncDockRoulette(d);
-                if (!selecting && d.winner && dockRollState === 'done') {
-                    clearTimeout(window.__dockRouletteHideTimer);
-                    window.__dockRouletteHideTimer = setTimeout(() => {
-                        if (dockRollState === 'done') hideDockRoulette();
-                    }, 3500);
                 }
 
                 const addTestBtn = document.getElementById('btnAddTestParticipant');
