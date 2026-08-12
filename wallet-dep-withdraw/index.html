@@ -710,21 +710,26 @@
       border-radius: 8px;
     }
     .dock .channel-bound:not([hidden]) { display: flex; }
+    .dock .channel-bound img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #333;
+      flex-shrink: 0;
+    }
     .dock .channel-bound .ch-avatar-fallback {
       width: 40px;
       height: 40px;
       border-radius: 50%;
       background: #3a3a3a;
       color: #bbb;
-      display: flex;
+      display: none;
       align-items: center;
       justify-content: center;
+      font-size: 16px;
+      font-weight: 600;
       flex-shrink: 0;
-    }
-    .dock .channel-bound .ch-avatar-fallback svg {
-      width: 22px;
-      height: 22px;
-      fill: #7c4dff;
     }
     .dock .channel-bound .ch-meta { min-width: 0; flex: 1; }
     .dock .channel-bound .ch-title {
@@ -1006,12 +1011,11 @@
       </div>
 
       <div id="ytChannelBar" class="channel-bound" hidden>
-        <div class="ch-avatar-fallback" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path d="M21.58 7.19c-.23-.86-.91-1.54-1.77-1.77C18.25 5 12 5 12 5s-6.25 0-7.81.42c-.86.23-1.54.91-1.77 1.77C2 8.75 2 12 2 12s0 3.25.42 4.81c.23.86.91 1.54 1.77 1.77C5.75 19 12 19 12 19s6.25 0 7.81-.42c.86-.23 1.54-.91 1.77-1.77C22 15.25 22 12 22 12s0-3.25-.42-4.81zM10 15.5v-7l6 3.5-6 3.5z"/></svg>
-        </div>
+        <img id="ytChAvatar" alt="" hidden>
+        <div class="ch-avatar-fallback" id="ytChAvatarFb">?</div>
         <div class="ch-meta">
           <div class="ch-title" id="ytChName">—</div>
-          <div class="ch-handle">Источник лайков</div>
+          <div class="ch-handle" id="ytChHandle">—</div>
         </div>
       </div>
 
@@ -1340,6 +1344,9 @@
     const cards = () => document.querySelectorAll(".bar .card");
     const ytChannelBar = document.getElementById("ytChannelBar");
     const ytChName = document.getElementById("ytChName");
+    const ytChHandle = document.getElementById("ytChHandle");
+    const ytChAvatar = document.getElementById("ytChAvatar");
+    const ytChAvatarFb = document.getElementById("ytChAvatarFb");
     const outCard = document.getElementById("outCard");
     const hideLikesBtn = document.getElementById("hideLikesBtn");
     let channelMetaTimer = null;
@@ -1364,7 +1371,34 @@
         ytChannelBar.hidden = true;
         return;
       }
-      ytChName.textContent = data.author_name || data.title || "YouTube";
+      const title = (data.title || data.author_name || "").trim();
+      const handle = (data.handle || "").trim();
+      let avatar = (data.avatar || "").trim();
+      // video thumbnail (i.ytimg) — не аватар канала
+      if (avatar && !/yt3\.(ggpht|googleusercontent)\.com/i.test(avatar)) {
+        avatar = "";
+      }
+      const showTitle = title || handle || "YouTube";
+      ytChName.textContent = showTitle;
+      if (ytChHandle) {
+        ytChHandle.textContent = handle || (u.startsWith("@") ? u : "—");
+      }
+      if (ytChAvatar && ytChAvatarFb) {
+        if (avatar) {
+          ytChAvatar.hidden = false;
+          ytChAvatar.src = avatar;
+          ytChAvatarFb.style.display = "none";
+          ytChAvatar.onerror = () => {
+            ytChAvatar.hidden = true;
+            ytChAvatarFb.style.display = "flex";
+            ytChAvatarFb.textContent = (showTitle || "?").slice(0, 1).toUpperCase();
+          };
+        } else {
+          ytChAvatar.hidden = true;
+          ytChAvatarFb.style.display = "flex";
+          ytChAvatarFb.textContent = (showTitle || "?").slice(0, 1).toUpperCase();
+        }
+      }
       ytChannelBar.hidden = false;
     }
     function scheduleChannelMeta() {
