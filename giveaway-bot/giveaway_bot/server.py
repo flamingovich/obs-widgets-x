@@ -484,6 +484,109 @@ def _channel_page_url(channel_input: str) -> str:
 _channel_meta_cache: dict[str, tuple[float, dict]] = {}
 
 
+def _is_weak_channel_avatar(url: str) -> bool:
+    u = (url or "").lower()
+    return (not u) or ("default-user" in u)
+
+
+def _is_weak_channel_title(title: str, raw: str = "", handle: str = "") -> bool:
+    t = (title or "").strip()
+    if not t:
+        return True
+    if t.startswith("@"):
+        return True
+    if raw and t == raw.strip():
+        return True
+    if handle and t == handle:
+        return True
+    return False
+
+
+def _innertube_channel_from_video(video_id: str) -> dict:
+    """Имя/аватар через Innertube — работает на VPS, когда HTML канала режется."""
+    import urllib.request
+
+    if not video_id:
+        return {}
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Content-Type": "application/json",
+        "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
+    }
+    ctx = {
+        "client": {
+            "clientName": "WEB",
+            "clientVersion": "2.20260811.01.00",
+            "hl": "ru",
+            "gl": "RU",
+        }
+    }
+    out: dict = {}
+    try:
+        body = json.dumps({"context": ctx, "videoId": video_id}).encode("utf-8")
+        req = urllib.request.Request(
+            "https://www.youtube.com/youtubei/v1/player?prettyPrint=false",
+            data=body,
+            headers=headers,
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="ignore"))
+        vd = data.get("videoDetails") or {}
+        mf = ((data.get("microformat") or {}).get("playerMicroformatRenderer") or {})
+        title = (vd.get("author") or mf.get("ownerChannelName") or "").strip()
+        handle = ""
+        profile = mf.get("ownerProfileUrl") or ""
+        m = re.search(r"/(@[\w.-]+)", profile)
+        if m:
+            handle = m.group(1)
+        if title:
+            out["title"] = title
+        if handle:
+            out["handle"] = handle
+        if vd.get("channelId"):
+            out["uc_id"] = vd.get("channelId")
+    except Exception:
+        pass
+
+    try:
+        body = json.dumps({"context": ctx, "videoId": video_id}).encode("utf-8")
+        req = urllib.request.Request(
+            "https://www.youtube.com/youtubei/v1/next?prettyPrint=false",
+            data=body,
+            headers=headers,
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="ignore"))
+        blob = json.dumps(data, ensure_ascii=False)
+        # Берём первую «пачку» аватаров владельца (один hash, разные размеры)
+        avatars = re.findall(
+            r"https://yt3\.(?:ggpht|googleusercontent)\.com/[A-Za-z0-9_\-.=%]+",
+            blob,
+        )
+        avatars = [u for u in avatars if "default-user" not in u]
+        if avatars:
+            # предпочитаем более крупный размер того же hash
+            best = avatars[0]
+            base = best.split("=")[0]
+            same = [u for u in avatars if u.startswith(base)]
+            for pref in ("=s800-", "=s176-", "=s88-", "=s48-"):
+                hit = next((u for u in same if pref in u), None)
+                if hit:
+                    best = hit
+                    break
+            else:
+                best = same[-1] if same else best
+            out["avatar"] = best
+    except Exception:
+        pass
+    return out
+
+
 def fetch_channel_profile(channel_input: str) -> dict:
     """Название + аватар канала (кэш ~1ч)."""
     import urllib.request
@@ -495,7 +598,15 @@ def fetch_channel_profile(channel_input: str) -> dict:
     now = time.time()
     hit = _channel_meta_cache.get(raw)
     if hit and now - hit[0] < 3600:
-        return dict(hit[1])
+        cached = dict(hit[1])
+        weak = _is_weak_channel_title(
+            cached.get("title") or "", raw, cached.get("handle") or ""
+        ) or _is_weak_channel_avatar(cached.get("avatar") or "")
+        # слабый ответ кэшируем только ~60с
+        if cached.get("ok") and not weak:
+            return cached
+        if weak and now - hit[0] < 60:
+            return cached
 
     page = _channel_page_url(raw)
     out = {
@@ -507,18 +618,25 @@ def fetch_channel_profile(channel_input: str) -> dict:
     }
 
     headers = {
-        'User-Agent': (
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-            'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         ),
-        'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
+        "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
     }
+
+    if raw.startswith("@"):
+        out["handle"] = raw.split("/")[0]
+    else:
+        m = re.search(r"youtube\.com/(@[\w.-]+)", raw)
+        if m:
+            out["handle"] = m.group(1)
 
     html = ""
     try:
         req = urllib.request.Request(page, headers=headers)
         with urllib.request.urlopen(req, timeout=12) as resp:
-            html = resp.read().decode('utf-8', errors='ignore')
+            html = resp.read().decode("utf-8", errors="ignore")
     except Exception as e:
         out["error"] = str(e)
 
@@ -528,51 +646,76 @@ def fetch_channel_profile(channel_input: str) -> dict:
         if m:
             title = m.group(1)
         if not title:
-            m = re.search(r'"channelMetadataRenderer"\s*:\s*\{[^}]*"title"\s*:\s*"((?:\\.|[^"\\])*)"', html)
+            m = re.search(
+                r'"channelMetadataRenderer"\s*:\s*\{[^}]*"title"\s*:\s*"((?:\\.|[^"\\])*)"',
+                html,
+            )
             if m:
-                title = m.group(1).encode('utf-8').decode('unicode_escape')
+                title = m.group(1).encode("utf-8").decode("unicode_escape")
         if not title:
-            m = re.search(r'<title>([^<]+)</title>', html)
+            m = re.search(r'<meta\s+name="title"\s+content="([^"]+)"', html)
             if m:
-                title = m.group(1).replace(' - YouTube', '').strip()
+                title = m.group(1)
+        if title:
+            title = title.replace(" - YouTube", "").strip()
 
         avatar = ""
-        m = re.search(
-            r'"avatar"\s*:\s*\{\s*"thumbnails"\s*:\s*\[\s*\{\s*"url"\s*:\s*"(https://[^"]+)"',
+        for m in re.finditer(
+            r'"url"\s*:\s*"(https://yt3\.(?:ggpht|googleusercontent)\.com/[^"]+)"',
             html,
-        )
-        if m:
-            avatar = m.group(1)
+        ):
+            cand = m.group(1)
+            if not _is_weak_channel_avatar(cand):
+                avatar = cand
+                break
         if not avatar:
             m = re.search(r'<meta\s+property="og:image"\s+content="(https://[^"]+)"', html)
-            if m:
+            if m and not _is_weak_channel_avatar(m.group(1)):
                 avatar = m.group(1)
 
-        handle = ""
+        handle = out.get("handle") or ""
         m = re.search(r'"canonicalBaseUrl"\s*:\s*"/(@[^"]+)"', html)
         if m:
             handle = m.group(1)
-        elif raw.startswith('@'):
-            handle = raw.split('/')[0]
-        elif 'youtube.com/@' in raw:
-            m = re.search(r'youtube\.com/(@[\w.-]+)', raw)
-            if m:
-                handle = m.group(1)
 
-        out.update({
-            "ok": bool(title or avatar),
-            "title": title or handle or raw,
-            "avatar": avatar,
-            "handle": handle,
-            "error": "" if (title or avatar) else (out.get("error") or "meta_not_found"),
-        })
+        if title and not _is_weak_channel_title(title, raw, handle):
+            out["title"] = title
+        if avatar:
+            out["avatar"] = avatar
+        if handle:
+            out["handle"] = handle
 
-    # Fallback: oEmbed по /live или watch — хотя бы имя автора
-    if not out.get("ok"):
+    # Fallback для VPS: YouTube часто режет HTML канала, но отдаёт player/next по live video
+    need_title = _is_weak_channel_title(out.get("title") or "", raw, out.get("handle") or "")
+    need_avatar = _is_weak_channel_avatar(out.get("avatar") or "")
+    if need_title or need_avatar:
+        video_id = None
+        m = re.search(
+            r"(?:youtu\.be/|youtube\.com/(?:watch\?(?:[^#]*&)?v=|live/|shorts/|embed/))([a-zA-Z0-9_-]{11})",
+            raw,
+        )
+        if m:
+            video_id = m.group(1)
+        if not video_id:
+            try:
+                video_id = get_live_video_id(raw)
+            except Exception:
+                video_id = None
+        if video_id:
+            extra = _innertube_channel_from_video(video_id)
+            if need_title and extra.get("title"):
+                out["title"] = extra["title"]
+            if need_avatar and extra.get("avatar"):
+                out["avatar"] = extra["avatar"]
+            if not out.get("handle") and extra.get("handle"):
+                out["handle"] = extra["handle"]
+
+    # oEmbed — ещё один шанс взять имя
+    if _is_weak_channel_title(out.get("title") or "", raw, out.get("handle") or ""):
         try:
             oembed_url = page
-            if '/watch' not in oembed_url and '/live' not in oembed_url:
-                oembed_url = page.rstrip('/') + '/live'
+            if "/watch" not in oembed_url:
+                oembed_url = page.rstrip("/") + "/live"
             q = urlencode({"url": oembed_url, "format": "json"})
             req = urllib.request.Request(
                 "https://www.youtube.com/oembed?" + q,
@@ -580,14 +723,22 @@ def fetch_channel_profile(channel_input: str) -> dict:
             )
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read().decode())
-            out.update({
-                "ok": True,
-                "title": data.get("author_name") or out.get("title") or raw,
-                "avatar": out.get("avatar") or "",
-                "error": "",
-            })
+            author = (data.get("author_name") or "").strip()
+            if author and not _is_weak_channel_title(author, raw, out.get("handle") or ""):
+                out["title"] = author
         except Exception:
             pass
+
+    if not out.get("title"):
+        out["title"] = out.get("handle") or raw
+    out["ok"] = bool(
+        out.get("title")
+        and not _is_weak_channel_title(out.get("title") or "", raw, out.get("handle") or "")
+    ) or (not _is_weak_channel_avatar(out.get("avatar") or ""))
+    if out["ok"]:
+        out["error"] = ""
+    elif not out.get("error"):
+        out["error"] = "meta_not_found"
 
     _channel_meta_cache[raw] = (now, dict(out))
     return out

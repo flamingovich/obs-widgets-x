@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Депозит / Вывод</title>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
     @font-face {
       font-family: "Unbounded";
@@ -16,11 +17,11 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       height: 100%;
-      font-family: "Unbounded", system-ui, sans-serif;
-      font-weight: 600;
       -webkit-font-smoothing: antialiased;
     }
     body.mode-overlay {
+      font-family: "Unbounded", system-ui, sans-serif;
+      font-weight: 600;
       background: transparent;
       display: flex;
       align-items: center;
@@ -30,10 +31,14 @@
       overflow: hidden;
     }
     body.mode-dock {
-      background: radial-gradient(120% 80% at 50% 0%, #2a2a38 0%, #16161c 55%, #0f0f12 100%);
-      color: #ececf1;
+      font-family: "Google Sans", "Roboto", sans-serif;
+      font-size: 13px;
+      font-weight: 400;
+      line-height: 1.4;
+      background: #1a1a1a;
+      color: #e0e0e0;
       min-height: 100%;
-      padding: 14px;
+      padding: 12px;
     }
 
     /* ——— оверлей ——— */
@@ -541,15 +546,207 @@
 
     /* Скрытие лайков: место в вёрстке сохраняем (оверлей не «прыгает»). */
     .likes-card.likes-visually-hidden {
-      visibility: hidden;
-      pointer-events: none;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
     }
 
-    /* ——— док ——— */
+    /* ——— док (стиль как у розыгрыша YouTube) ——— */
+    .dock {
+      display: none;
+      flex-direction: column;
+      gap: 0;
+      max-width: 420px;
+      margin: 0 auto;
+    }
+    body.mode-dock .dock { display: flex; }
+
+    .dock .section {
+      background: #252525;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+    }
+    .dock .section-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .dock .section-head .title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+    }
+    .dock .section-icon {
+      width: 18px;
+      height: 18px;
+      fill: #7c4dff;
+      flex-shrink: 0;
+    }
+    .dock .section h2 {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 500;
+      color: #fff;
+    }
+    .dock .hint {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+    .dock label.field-lbl {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      margin: 8px 0 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .dock label.field-lbl:first-of-type { margin-top: 0; }
+
+    .dock input[type="text"],
+    .dock select {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background: #1e1e1e;
+      color: #e0e0e0;
+      font-size: 13px;
+      font-family: inherit;
+      font-weight: 400;
+    }
+    .dock input[type="text"]:focus,
+    .dock select:focus {
+      outline: none;
+      border-color: #7c4dff;
+    }
+    .dock input::placeholder { color: #666; font-weight: 400; }
+
+    .dock .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 0;
+    }
+    .dock .row > button { flex: 1; min-width: 72px; }
+
+    .dock button {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 6px;
+      background: #333;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+    .dock button .btn-ico {
+      width: 14px;
+      height: 14px;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+    .dock button:hover:not(:disabled) { background: #444; }
+    .dock button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .dock button.primary { background: #7c4dff; color: #fff; }
+    .dock button.primary:hover:not(:disabled) { background: #8e63ff; }
+    .dock button.outline {
+      background: transparent;
+      border: 1px solid #444;
+      color: #999;
+    }
+    .dock button.outline:hover:not(:disabled) { border-color: #666; color: #fff; }
+
+    .dock .icon-btn {
+      flex: 0 0 auto;
+      width: 30px;
+      height: 30px;
+      min-width: 30px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      background: #333;
+      border: none;
+    }
+    .dock .icon-btn svg { width: 16px; height: 16px; fill: #999; }
+    .dock .icon-btn:hover { background: #444; }
+    .dock .icon-btn:hover svg { fill: #fff; }
+    .dock .icon-btn.active { background: rgba(124, 77, 255, 0.25); }
+    .dock .icon-btn.active svg { fill: #7c4dff; }
+
+    .dock .settings-panel {
+      display: none;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 10px;
+      margin: 0 0 10px;
+      background: #1e1e1e;
+    }
+    .dock .settings-panel.open { display: block; }
+
+    .dock .channel-bound {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      margin: 0 0 10px;
+      background: #1e1e1e;
+      border: 1px solid #333;
+      border-radius: 8px;
+    }
+    .dock .channel-bound:not([hidden]) { display: flex; }
+    .dock .channel-bound .ch-avatar-fallback {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #3a3a3a;
+      color: #bbb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .dock .channel-bound .ch-avatar-fallback svg {
+      width: 22px;
+      height: 22px;
+      fill: #7c4dff;
+    }
+    .dock .channel-bound .ch-meta { min-width: 0; flex: 1; }
+    .dock .channel-bound .ch-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .dock .channel-bound .ch-handle {
+      font-size: 11px;
+      color: #888;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     .dock-money-line {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       width: 100%;
     }
     .dock-money-line .dock-m-val {
@@ -557,238 +754,147 @@
       min-width: 0;
     }
     .dock-money-line .dock-m-plus {
-      flex: 0 0 56px;
-      width: 56px;
-      min-width: 56px;
-      padding-left: 6px;
-      padding-right: 6px;
-    }
-    .dock-chip {
-      flex: 0 0 34px;
-      width: 34px;
-      min-width: 34px;
-      height: auto;
-      min-height: 34px;
-      padding: 0;
-      display: grid;
-      place-items: center;
-      font-size: 18px;
-      line-height: 1;
-      font-family: "Unbounded", system-ui, sans-serif;
-      font-weight: 600;
-      border-radius: 9px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      background: rgba(255, 255, 255, 0.08);
-      color: #fafafa;
-      cursor: pointer;
-    }
-    .dock-chip.dep {
-      border-color: rgba(56, 189, 248, 0.5);
-      color: #7dd3fc;
-    }
-    .dock-chip.out {
-      border-color: rgba(248, 113, 113, 0.45);
-      color: #fca5a5;
-    }
-    .dock-chip:hover {
-      background: rgba(255, 255, 255, 0.12);
-    }
-
-    .dock-yt-bar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 10px;
-      border-radius: 12px;
-      background: rgba(0, 0, 0, 0.32);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-    .dock-yt-bar[hidden] {
-      display: none !important;
-    }
-    .dock-yt-hint {
-      font-size: 8px;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: #71717a;
-    }
-    .dock-yt-name {
-      font-size: 12px;
-      font-weight: 600;
-      color: #f4f4f5;
-      line-height: 1.25;
-      word-break: break-word;
-    }
-
-    .dock input.dock-micro {
-      font-size: 8px;
-      padding: 4px 6px;
-      letter-spacing: -0.01em;
-      line-height: 1.25;
-      font-weight: 600;
-    }
-
-    .dock-divider {
-      height: 1px;
-      background: rgba(255, 255, 255, 0.06);
-      margin: 2px 0;
-    }
-
-    .dock {
-      display: none;
-      flex-direction: column;
-      gap: 10px;
-      max-width: 320px;
-      margin: 0 auto;
-      padding: 14px 14px 16px;
-      border-radius: 18px;
-      border: 1px solid rgba(255, 255, 255, 0.09);
-      background: linear-gradient(
-        165deg,
-        rgba(30, 30, 38, 0.97) 0%,
-        rgba(18, 18, 24, 0.98) 100%
-      );
-      box-shadow:
-        0 0 0 1px rgba(0, 0, 0, 0.5) inset,
-        0 24px 48px rgba(0, 0, 0, 0.45);
-    }
-    body.mode-dock .dock { display: flex; }
-
-    .dock-head {
-      padding-bottom: 6px;
-      margin-bottom: 2px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    }
-    .dock-head h1 {
-      font-size: 14px;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      color: #fafafa;
-    }
-    .dock-head p {
-      display: none;
+      flex: 0 0 64px;
+      width: 64px;
+      min-width: 64px;
+      padding-left: 8px;
+      padding-right: 8px;
     }
     .dock-currency-select {
-      flex: 0 0 48px;
-      width: 48px;
-      min-width: 48px;
-      height: auto;
-      min-height: 34px;
-      padding: 0 4px;
-      font-size: 13px;
-      font-weight: 600;
-      border-radius: 9px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      background: rgba(0, 0, 0, 0.28);
-      color: #ececf1;
-      font-family: inherit;
-      cursor: pointer;
+      flex: 0 0 52px;
+      width: 52px;
+      min-width: 52px;
+      padding: 8px 4px;
       text-align: center;
+      cursor: pointer;
     }
-    .dock-currency-select.dep { border-color: rgba(56, 189, 248, 0.35); color: #bae6fd; }
-    .dock-currency-select.out { border-color: rgba(248, 113, 113, 0.35); color: #fecaca; }
-
-    .dock .field {
-      margin-bottom: 0;
+    .dock-chip {
+      flex: 0 0 36px !important;
+      width: 36px;
+      min-width: 36px;
+      padding: 0;
+      font-size: 16px;
+      font-weight: 500;
     }
-    .dock .field label {
-      display: block;
-      font-size: 9px;
-      font-weight: 600;
-      letter-spacing: 0.11em;
-      text-transform: uppercase;
-      margin-bottom: 4px;
-    }
-    .dock .field label.dep { color: #7dd3fc; }
-    .dock .field label.out { color: #fca5a5; }
-    .dock .field label.likes { color: #fcd34d; }
-    .dock .field label.neutral { color: #a1a1aa; }
+    .dock-chip.primary { flex: 0 0 36px !important; }
 
     .dock-likes-head {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      margin-bottom: 4px;
+      margin: 8px 0 4px;
     }
-    .dock-likes-head label {
-      margin-bottom: 0;
+    .dock-likes-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dock-likes-title .field-lbl {
+      margin: 0 !important;
+      padding: 0;
+      line-height: 1.15;
+      height: auto;
+      display: block;
     }
     .dock-hide-likes-btn {
-      flex-shrink: 0;
-      font-family: "Unbounded", system-ui, sans-serif;
-      font-size: 8px;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      padding: 5px 10px;
-      border-radius: 8px;
-      border: 1px solid rgba(252, 211, 77, 0.38);
-      background: rgba(252, 211, 77, 0.1);
-      color: #fde68a;
-      cursor: pointer;
+      flex: 0 0 16px !important;
+      width: 16px !important;
+      height: 16px !important;
+      min-width: 16px !important;
+      min-height: 16px !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border-radius: 3px;
+      background: transparent;
+      border: none;
+      color: #bbb;
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      line-height: 0;
+      transform: none;
     }
     .dock-hide-likes-btn:hover {
-      background: rgba(252, 211, 77, 0.18);
+      background: transparent;
+      color: #fff;
     }
+    .dock-hide-likes-btn.is-hidden {
+      background: transparent;
+      color: #b39ddb;
+    }
+    .dock-hide-likes-btn svg {
+      width: 16px !important;
+      height: 16px !important;
+      min-width: 16px;
+      min-height: 16px;
+      flex-shrink: 0;
+      display: block !important;
+    }
+    .dock-hide-likes-btn svg.ico-stroke {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .dock-hide-likes-btn .ico-eye-off { display: none !important; }
+    .dock-hide-likes-btn.is-hidden .ico-eye { display: none !important; }
+    .dock-hide-likes-btn.is-hidden .ico-eye-off { display: block !important; }
 
-    .dock input[type="text"] {
+    .dock .section.extras {
+      padding: 0;
+      overflow: hidden;
+    }
+    .dock .extras-toggle {
       width: 100%;
-      padding: 9px 11px;
-      font-family: "Unbounded", system-ui, sans-serif;
-      font-size: 14px;
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
-      letter-spacing: 0.02em;
-      border-radius: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      background: rgba(0, 0, 0, 0.35);
-      color: #fafafa;
-      outline: none;
-      box-shadow: 0 2px 0 rgba(255, 255, 255, 0.03) inset;
-      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 8px 12px;
+      margin: 0;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      color: #9a86d8;
+      cursor: pointer;
     }
-    .dock .field.dep-in input:focus {
-      border-color: rgba(56, 189, 248, 0.5);
-      box-shadow:
-        0 2px 0 rgba(255, 255, 255, 0.03) inset,
-        0 0 0 3px rgba(56, 189, 248, 0.14);
+    .dock .extras-toggle:hover { background: #2a2a2a; color: #b39ddb; }
+    .dock .extras-toggle-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
     }
-    .dock .field.out-in input:focus {
-      border-color: rgba(248, 113, 113, 0.45);
-      box-shadow:
-        0 2px 0 rgba(255, 255, 255, 0.03) inset,
-        0 0 0 3px rgba(248, 113, 113, 0.12);
+    .dock .extras-toggle-left .section-icon {
+      width: 16px;
+      height: 16px;
     }
-    .dock .field.likes-yt input:focus,
-    .dock .field.likes-goal input:focus {
-      border-color: rgba(251, 191, 36, 0.5);
-      box-shadow:
-        0 2px 0 rgba(255, 255, 255, 0.03) inset,
-        0 0 0 3px rgba(251, 191, 36, 0.14);
+    .dock .extras-chevron {
+      width: 16px;
+      height: 16px;
+      fill: #888;
+      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), fill 0.25s ease;
     }
-    .dock .field.bridge-in input:focus {
-      border-color: rgba(161, 161, 170, 0.55);
-      box-shadow:
-        0 2px 0 rgba(255, 255, 255, 0.03) inset,
-        0 0 0 3px rgba(113, 113, 122, 0.2);
+    .dock .extras.open .extras-chevron { transform: rotate(180deg); fill: #bbb; }
+    .dock .extras-body {
+      display: grid;
+      grid-template-rows: 0fr;
+      overflow: hidden;
+      transition: grid-template-rows 0.35s cubic-bezier(0.22, 1, 0.36, 1);
     }
-    .dock .field.likes-yt input.dock-micro:focus {
-      border-color: rgba(251, 191, 36, 0.5);
-      box-shadow:
-        0 2px 0 rgba(255, 255, 255, 0.03) inset,
-        0 0 0 2px rgba(251, 191, 36, 0.12);
+    .dock .extras.open .extras-body { grid-template-rows: 1fr; }
+    .dock .extras-inner {
+      overflow: hidden;
+      min-height: 0;
     }
-    .dock .field.bridge-in input.dock-micro:focus {
-      border-color: rgba(161, 161, 170, 0.55);
-      box-shadow:
-        0 2px 0 rgba(255, 255, 255, 0.03) inset,
-        0 0 0 2px rgba(113, 113, 122, 0.15);
+    .dock .extras-pad {
+      padding: 0 12px 10px;
     }
-    .dock input::placeholder {
-      color: #52525b;
-      font-weight: 600;
+    .dock input.dock-micro {
+      font-size: 12px;
     }
   </style>
 </head>
@@ -882,55 +988,84 @@
   </div>
 
   <div class="dock">
-    <div class="dock-head">
-      <h1>Кошелёк</h1>
-      <p>оверлей</p>
-    </div>
-    <div id="ytChannelBar" class="dock-yt-bar" hidden>
-      <div class="dock-yt-txt">
-        <div class="dock-yt-hint">Канал</div>
-        <div id="ytChName" class="dock-yt-name">—</div>
+    <div class="section" id="walletSection">
+      <div class="section-head">
+        <div class="title-wrap">
+          <svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 7.28V5c0-1.1-.9-2-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2v-2.28A2 2 0 0 0 22 15V9c0-.74-.4-1.39-1-1.72zM20 9v6h-7V9h7zM5 19V5h14v2h-6c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h6v2H5z"/><circle cx="16" cy="12" r="1.5"/></svg>
+          <h2>Кошелёк стрима</h2>
+        </div>
+        <button type="button" class="icon-btn" id="btnWalletSettings" title="Настройки" aria-label="Настройки" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+        </button>
       </div>
-    </div>
-    <div class="field dep-in">
-      <label class="dep" for="depIn">Депозит</label>
+
+      <div class="settings-panel" id="walletSettingsPanel">
+        <p class="hint" style="margin:0 0 6px;">Бридж лайков (если не из портала)</p>
+        <label class="field-lbl" for="bridgeUrl">URL бриджа</label>
+        <input id="bridgeUrl" class="dock-micro" type="text" spellcheck="false" autocomplete="off" placeholder="http://127.0.0.1:8766" />
+      </div>
+
+      <div id="ytChannelBar" class="channel-bound" hidden>
+        <div class="ch-avatar-fallback" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M21.58 7.19c-.23-.86-.91-1.54-1.77-1.77C18.25 5 12 5 12 5s-6.25 0-7.81.42c-.86.23-1.54.91-1.77 1.77C2 8.75 2 12 2 12s0 3.25.42 4.81c.23.86.91 1.54 1.77 1.77C5.75 19 12 19 12 19s6.25 0 7.81-.42c.86-.23 1.54-.91 1.77-1.77C22 15.25 22 12 22 12s0-3.25-.42-4.81zM10 15.5v-7l6 3.5-6 3.5z"/></svg>
+        </div>
+        <div class="ch-meta">
+          <div class="ch-title" id="ytChName">—</div>
+          <div class="ch-handle">Источник лайков</div>
+        </div>
+      </div>
+
+      <label class="field-lbl" for="depIn">Депозит</label>
       <div class="dock-money-line">
         <input id="depIn" class="dock-m-val" type="text" inputmode="decimal" placeholder="100" spellcheck="false" autocomplete="off" />
-        <input id="depPlus" class="dock-m-plus" type="text" inputmode="decimal" placeholder="50" spellcheck="false" autocomplete="off" />
-        <select id="depCurrency" class="dock-currency-select dep" aria-label="Валюта депозита">
+        <input id="depPlus" class="dock-m-plus" type="text" inputmode="decimal" placeholder="+50" spellcheck="false" autocomplete="off" />
+        <select id="depCurrency" class="dock-currency-select" aria-label="Валюта депозита">
           <option value="RUB">₽</option>
           <option value="USD">$</option>
         </select>
-        <button type="button" class="dock-chip dep" id="depPlusBtn">+</button>
+        <button type="button" class="dock-chip primary" id="depPlusBtn" title="Прибавить">+</button>
       </div>
-    </div>
-    <div class="field out-in">
-      <label class="out" for="outIn">Вывод</label>
+
+      <label class="field-lbl" for="outIn">Вывод</label>
       <div class="dock-money-line">
         <input id="outIn" class="dock-m-val" type="text" inputmode="decimal" placeholder="7777" spellcheck="false" autocomplete="off" />
-        <input id="outPlus" class="dock-m-plus" type="text" inputmode="decimal" placeholder="50" spellcheck="false" autocomplete="off" />
-        <select id="outCurrency" class="dock-currency-select out" aria-label="Валюта вывода">
+        <input id="outPlus" class="dock-m-plus" type="text" inputmode="decimal" placeholder="+50" spellcheck="false" autocomplete="off" />
+        <select id="outCurrency" class="dock-currency-select" aria-label="Валюта вывода">
           <option value="RUB">₽</option>
           <option value="USD">$</option>
         </select>
-        <button type="button" class="dock-chip out" id="outPlusBtn">+</button>
+        <button type="button" class="dock-chip primary" id="outPlusBtn" title="Прибавить">+</button>
       </div>
-    </div>
-    <div class="field likes-goal">
+
       <div class="dock-likes-head">
-        <label class="likes" for="likeGoal">Цель лайков</label>
-        <button type="button" class="dock-hide-likes-btn" id="hideLikesBtn">Скрыть</button>
+        <div class="dock-likes-title">
+          <label class="field-lbl" for="likeGoal">Цель лайков</label>
+          <button type="button" class="dock-hide-likes-btn" id="hideLikesBtn" title="Скрыть цель лайков на оверлее" aria-label="Скрыть цель лайков на оверлее" aria-pressed="false">
+            <svg class="ico-eye ico-stroke" viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="ico-eye-off ico-stroke" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
       </div>
       <input id="likeGoal" type="text" inputmode="numeric" spellcheck="false" autocomplete="off" placeholder="200" />
     </div>
-    <div class="dock-divider"></div>
-    <div class="field likes-yt">
-      <label class="likes" for="ytUrl">YouTube</label>
-      <input id="ytUrl" class="dock-micro" type="text" spellcheck="false" autocomplete="off" placeholder="https://youtube.com/@… или watch?v=…" />
-    </div>
-    <div class="field bridge-in">
-      <label class="neutral" for="bridgeUrl">Бридж</label>
-      <input id="bridgeUrl" class="dock-micro" type="text" spellcheck="false" autocomplete="off" placeholder="http://127.0.0.1:8766" />
+
+    <div class="section extras" id="walletExtras">
+      <button type="button" class="extras-toggle" id="btnWalletExtras" aria-expanded="false">
+        <span class="extras-toggle-left">
+          <svg class="section-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm15 0h3v3h-3v-3zm-5 5h3v3h-3v-3zm5 0h3v3h-3v-3zm-5-5h3v3h-3v-3z"/></svg>
+          Дополнительно
+        </span>
+        <svg class="extras-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+      </button>
+      <div class="extras-body">
+        <div class="extras-inner">
+          <div class="extras-pad">
+            <label class="field-lbl" for="ytUrl">YouTube</label>
+            <input id="ytUrl" class="dock-micro" type="text" spellcheck="false" autocomplete="off" placeholder="@handle или https://youtube.com/…" />
+            <p class="hint" style="margin:8px 0 0;">Канал или ссылка на эфир — отсюда считаются лайки на оверлее.</p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1073,7 +1208,11 @@
         if (hidden) localStorage.setItem(K.hideLikes, "1");
         else localStorage.removeItem(K.hideLikes);
       } catch (_) {}
-      if (!opts || opts.push !== false) scheduleServerPush();
+      if (!opts || opts.push !== false) {
+        // не даём устаревшему GET перетереть локальный toggle до ответа POST
+        serverUpdatedAt = Math.max(serverUpdatedAt, Date.now());
+        scheduleServerPush(true);
+      }
     }
 
     function collectServerPayload() {
@@ -1127,8 +1266,12 @@
       }
     }
 
-    function scheduleServerPush() {
+    function scheduleServerPush(immediate) {
       clearTimeout(pushTimer);
+      if (immediate) {
+        pushServerState();
+        return;
+      }
       pushTimer = setTimeout(pushServerState, 120);
     }
 
@@ -1519,12 +1662,21 @@
     function applyLikesCardVisibility() {
       const el = document.querySelector(".likes-card");
       if (!el) return;
-      el.classList.toggle("likes-visually-hidden", likesGoalHidden());
+      const hidden = likesGoalHidden();
+      el.classList.toggle("likes-visually-hidden", hidden);
+      el.setAttribute("aria-hidden", hidden ? "true" : "false");
     }
 
     function syncHideLikesBtnLabel() {
       if (!hideLikesBtn) return;
-      hideLikesBtn.textContent = likesGoalHidden() ? "Показать" : "Скрыть";
+      const hidden = likesGoalHidden();
+      hideLikesBtn.classList.toggle("is-hidden", hidden);
+      hideLikesBtn.setAttribute("aria-pressed", hidden ? "true" : "false");
+      hideLikesBtn.title = hidden ? "Показать цель лайков на оверлее" : "Скрыть цель лайков на оверлее";
+      hideLikesBtn.setAttribute(
+        "aria-label",
+        hidden ? "Показать цель лайков на оверлее" : "Скрыть цель лайков на оверлее"
+      );
     }
 
     function paintOverlay() {
@@ -1560,6 +1712,7 @@
         if (s && typeof s === "object") {
           appearanceSettings = s;
           applyWalletAppearance(stack, s);
+          applyLikesCardVisibility();
           paintLikesLineHtml();
           fitOverlayAmts();
         }
@@ -1658,6 +1811,23 @@
     }
 
     if (dockMode) {
+      const btnWalletSettings = document.getElementById("btnWalletSettings");
+      const walletSettingsPanel = document.getElementById("walletSettingsPanel");
+      const btnWalletExtras = document.getElementById("btnWalletExtras");
+      const walletExtras = document.getElementById("walletExtras");
+      if (btnWalletSettings && walletSettingsPanel) {
+        btnWalletSettings.addEventListener("click", () => {
+          const open = walletSettingsPanel.classList.toggle("open");
+          btnWalletSettings.classList.toggle("active", open);
+          btnWalletSettings.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+      }
+      if (btnWalletExtras && walletExtras) {
+        btnWalletExtras.addEventListener("click", () => {
+          const open = walletExtras.classList.toggle("open");
+          btnWalletExtras.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+      }
       paintDock();
       refreshFxRate();
       fxPollTimer = setInterval(refreshFxRate, 5 * 60 * 1000);
