@@ -448,16 +448,47 @@ def _resolve_live_video_id(raw: str) -> str | None:
         req = urllib.request.Request(live, headers=headers)
         with urllib.request.urlopen(req, timeout=12) as resp:
             final = resp.geturl() or ""
-            html = resp.read(120000).decode("utf-8", errors="ignore")
+            # на VPS HTML часто обрезан/без videoId — читаем целиком по возможности
+            html = resp.read(800000).decode("utf-8", errors="ignore")
         m = re.search(r"[?&]v=([a-zA-Z0-9_-]{11})", final)
         if m:
             return m.group(1)
         m = re.search(r"/live/([a-zA-Z0-9_-]{11})", final)
         if m:
             return m.group(1)
+        # предпочитаем isLiveNow рядом с videoId, иначе первый videoId
+        m = re.search(
+            r'"videoId"\s*:\s*"([a-zA-Z0-9_-]{11})"[^|]{0,400}?"isLiveNow"\s*:\s*true',
+            html,
+        )
+        if m:
+            return m.group(1)
+        m = re.search(
+            r'"isLiveNow"\s*:\s*true[^|]{0,400}?"videoId"\s*:\s*"([a-zA-Z0-9_-]{11})"',
+            html,
+        )
+        if m:
+            return m.group(1)
         m = re.search(r'"videoId"\s*:\s*"([a-zA-Z0-9_-]{11})"', html)
         if m:
             return m.group(1)
+    except Exception:
+        pass
+
+    # VPS: HTML канала часто пустой, yt-dlp по /live всё ещё резолвит id
+    try:
+        opts: dict[str, Any] = {
+            "quiet": True,
+            "no_warnings": True,
+            "skip_download": True,
+        }
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(live, download=False)
+        vid_info = _pick_video(info) or (info if isinstance(info, dict) else None)
+        if isinstance(vid_info, dict):
+            vid = str(vid_info.get("id") or "").strip()
+            if re.fullmatch(r"[a-zA-Z0-9_-]{11}", vid):
+                return vid
     except Exception:
         pass
     return None
