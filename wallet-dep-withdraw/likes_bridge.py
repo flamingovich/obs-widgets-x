@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -21,8 +22,20 @@ from wallet_widget_settings import load_wallet_widget, save_wallet_widget
 
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CACHE_TTL = 16.0
+CACHE_TTL = 45.0
+STALE_TTL = 180.0
 _cache: dict[str, tuple[float, dict[str, Any]]] = {}
+_url_locks: dict[str, threading.Lock] = {}
+_url_locks_guard = threading.Lock()
+
+
+def _lock_for_url(url: str) -> threading.Lock:
+    with _url_locks_guard:
+        lock = _url_locks.get(url)
+        if lock is None:
+            lock = threading.Lock()
+            _url_locks[url] = lock
+        return lock
 
 META_TTL = 300.0
 _meta_cache: dict[str, tuple[float, dict[str, Any]]] = {}
@@ -127,24 +140,42 @@ def status():
         body["goal"] = goal
         return jsonify(body)
 
-    likes, title, vid_id, err = fetch_likes(url)
-    body: dict[str, Any] = {
-        "ok": err is None and likes is not None,
-        "error": err,
-        "likes": likes,
-        "goal": goal,
-        "title": title,
-        "video_id": vid_id,
-    }
-    if likes is None and err is None:
-        body["ok"] = False
-        body["error"] = (
-            "YouTube не отдал число лайков (часто так на трансляциях). "
-            "Попробуй прямую ссылку на эфир watch?v=..."
-        )
+    # Один yt-dlp на URL; остальные ждут и получают свежий/stale кэш
+    with _lock_for_url(url):
+        now = time.monotonic()
+        hit = _cache.get(url)
+        if hit and now - hit[0] < CACHE_TTL:
+            body = dict(hit[1])
+            body["goal"] = goal
+            return jsonify(body)
 
-    _cache[url] = (now, {k: v for k, v in body.items() if k != "goal"})
-    return jsonify(body)
+        likes, title, vid_id, err = fetch_likes(url)
+        if likes is None and hit and now - hit[0] < STALE_TTL:
+            body = dict(hit[1])
+            body["goal"] = goal
+            body["stale"] = True
+            if err:
+                body["error"] = err
+            return jsonify(body)
+
+        body = {
+            "ok": err is None and likes is not None,
+            "error": err,
+            "likes": likes,
+            "goal": goal,
+            "title": title,
+            "video_id": vid_id,
+        }
+        if likes is None and err is None:
+            body["ok"] = False
+            body["error"] = (
+                "YouTube не отдал число лайков (часто так на трансляциях). "
+                "Попробуй прямую ссылку на эфир watch?v=..."
+            )
+
+        if likes is not None or not hit:
+            _cache[url] = (now, {k: v for k, v in body.items() if k not in ("goal", "stale")})
+        return jsonify(body)
 
 
 @app.route("/health")

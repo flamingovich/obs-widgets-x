@@ -7,7 +7,7 @@ import time
 import json
 import os
 import re
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 WORKSPACE_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if WORKSPACE_ROOT not in sys.path:
@@ -28,6 +28,7 @@ from user_context import (
     set_chat_thread_for_user,
     bump_chat_session,
     get_chat_session,
+    list_giveaway_user_ids,
     resolve_user,
     _chat_instances,
 )
@@ -372,49 +373,235 @@ def save_channel():
 def get_live_video_id(channel_input):
     import urllib.request
     import urllib.error
-    
-    channel_input = channel_input.strip()
-    
+
+    channel_input = (channel_input or "").strip()
+    if not channel_input:
+        return None
+
+    # Уже video id
     if re.match(r'^[a-zA-Z0-9_-]{11}$', channel_input):
         return channel_input
-    
+
+    # Прямая ссылка на видео / шортс /live/ID
+    m = re.search(
+        r'(?:youtu\.be/|youtube\.com/(?:watch\?(?:[^#]*&)?v=|live/|shorts/|embed/))([a-zA-Z0-9_-]{11})',
+        channel_input,
+    )
+    if m:
+        video_id = m.group(1)
+        print(f"✅ Video id из ссылки: {video_id}")
+        return video_id
+
     if channel_input.startswith('@'):
         live_url = f"https://www.youtube.com/{channel_input}/live"
-    elif 'youtube.com' in channel_input:
-        channel_input = channel_input.replace('/live', '').rstrip('/')
-        live_url = f"{channel_input}/live"
+    elif 'youtube.com/' in channel_input:
+        base = channel_input.split('?')[0].split('#')[0].rstrip('/')
+        if base.endswith('/live'):
+            live_url = base
+        else:
+            live_url = f"{base}/live"
     elif channel_input.startswith('UC'):
         live_url = f"https://www.youtube.com/channel/{channel_input}/live"
     else:
-        live_url = f"https://www.youtube.com/@{channel_input}/live"
-    
+        handle = channel_input.lstrip('@')
+        live_url = f"https://www.youtube.com/@{handle}/live"
+
     try:
         print(f"🔍 Ищу стрим: {live_url}")
-        
+
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': (
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+            ),
+            'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
         }
         req = urllib.request.Request(live_url, headers=headers)
-        
-        with urllib.request.urlopen(req, timeout=10) as response:
-            html = response.read().decode('utf-8')
-            
-            match = re.search(r'"videoId":"([a-zA-Z0-9_-]{11})"', html)
-            if match:
-                video_id = match.group(1)
-                print(f"✅ Найден стрим: {video_id}")
+
+        with urllib.request.urlopen(req, timeout=12) as response:
+            final_url = response.geturl() or ""
+            html = response.read().decode('utf-8', errors='ignore')
+
+            # 1) После редиректа /live → /watch?v=… / /live/ID — самый надёжный id
+            m = re.search(
+                r'(?:youtu\.be/|youtube\.com/(?:watch\?(?:[^#]*&)?v=|live/|shorts/|embed/))([a-zA-Z0-9_-]{11})',
+                final_url,
+            )
+            if m:
+                video_id = m.group(1)
+                print(f"✅ Найден стрим (redirect): {video_id}")
                 return video_id
-            
-            match = re.search(r'watch\?v=([a-zA-Z0-9_-]{11})', html)
-            if match:
-                video_id = match.group(1)
-                print(f"✅ Найден стрим: {video_id}")
+
+            m = re.search(
+                r'<link rel="canonical" href="[^"]*(?:v=|live/)([a-zA-Z0-9_-]{11})',
+                html,
+            )
+            if m:
+                video_id = m.group(1)
+                print(f"✅ Найден стрим (canonical): {video_id}")
                 return video_id
-                
+
+            # 2) Только id с isLiveNow — не берём случайный videoId со страницы (это был баг)
+            for pattern in (
+                r'"videoId":"([a-zA-Z0-9_-]{11})"[^}]{0,400}"isLiveNow"\s*:\s*true',
+                r'"isLiveNow"\s*:\s*true[^}]{0,400}"videoId":"([a-zA-Z0-9_-]{11})"',
+                r'"isLiveNow":true.{0,1200}?"videoId":"([a-zA-Z0-9_-]{11})"',
+                r'"videoId":"([a-zA-Z0-9_-]{11})".{0,1200}?"isLiveNow":true',
+            ):
+                match = re.search(pattern, html, re.DOTALL)
+                if match:
+                    video_id = match.group(1)
+                    print(f"✅ Найден стрим (isLiveNow): {video_id}")
+                    return video_id
+
     except Exception as e:
         print(f"❌ Ошибка поиска стрима: {e}")
-    
+
     return None
+
+
+def _channel_page_url(channel_input: str) -> str:
+    s = (channel_input or "").strip()
+    if not s:
+        return ""
+    if re.match(r'^[a-zA-Z0-9_-]{11}$', s):
+        return f"https://www.youtube.com/watch?v={s}"
+    m = re.search(
+        r'(?:youtu\.be/|youtube\.com/(?:watch\?(?:[^#]*&)?v=|live/|shorts/|embed/))([a-zA-Z0-9_-]{11})',
+        s,
+    )
+    if m:
+        return f"https://www.youtube.com/watch?v={m.group(1)}"
+    if s.startswith('@'):
+        return f"https://www.youtube.com/{s}"
+    if 'youtube.com/' in s:
+        return s.split('?')[0].split('#')[0].rstrip('/').replace('/live', '')
+    if s.startswith('UC') and re.match(r'^UC[\w-]{20,}$', s):
+        return f"https://www.youtube.com/channel/{s}"
+    return f"https://www.youtube.com/@{s.lstrip('@')}"
+
+
+_channel_meta_cache: dict[str, tuple[float, dict]] = {}
+
+
+def fetch_channel_profile(channel_input: str) -> dict:
+    """Название + аватар канала (кэш ~1ч)."""
+    import urllib.request
+
+    raw = (channel_input or "").strip()
+    if not raw:
+        return {"ok": False, "error": "empty"}
+
+    now = time.time()
+    hit = _channel_meta_cache.get(raw)
+    if hit and now - hit[0] < 3600:
+        return dict(hit[1])
+
+    page = _channel_page_url(raw)
+    out = {
+        "ok": False,
+        "channel_id": raw,
+        "title": "",
+        "avatar": "",
+        "handle": "",
+    }
+
+    headers = {
+        'User-Agent': (
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+            'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+        ),
+        'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
+    }
+
+    html = ""
+    try:
+        req = urllib.request.Request(page, headers=headers)
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            html = resp.read().decode('utf-8', errors='ignore')
+    except Exception as e:
+        out["error"] = str(e)
+
+    if html:
+        title = ""
+        m = re.search(r'<meta\s+property="og:title"\s+content="([^"]+)"', html)
+        if m:
+            title = m.group(1)
+        if not title:
+            m = re.search(r'"channelMetadataRenderer"\s*:\s*\{[^}]*"title"\s*:\s*"((?:\\.|[^"\\])*)"', html)
+            if m:
+                title = m.group(1).encode('utf-8').decode('unicode_escape')
+        if not title:
+            m = re.search(r'<title>([^<]+)</title>', html)
+            if m:
+                title = m.group(1).replace(' - YouTube', '').strip()
+
+        avatar = ""
+        m = re.search(
+            r'"avatar"\s*:\s*\{\s*"thumbnails"\s*:\s*\[\s*\{\s*"url"\s*:\s*"(https://[^"]+)"',
+            html,
+        )
+        if m:
+            avatar = m.group(1)
+        if not avatar:
+            m = re.search(r'<meta\s+property="og:image"\s+content="(https://[^"]+)"', html)
+            if m:
+                avatar = m.group(1)
+
+        handle = ""
+        m = re.search(r'"canonicalBaseUrl"\s*:\s*"/(@[^"]+)"', html)
+        if m:
+            handle = m.group(1)
+        elif raw.startswith('@'):
+            handle = raw.split('/')[0]
+        elif 'youtube.com/@' in raw:
+            m = re.search(r'youtube\.com/(@[\w.-]+)', raw)
+            if m:
+                handle = m.group(1)
+
+        out.update({
+            "ok": bool(title or avatar),
+            "title": title or handle or raw,
+            "avatar": avatar,
+            "handle": handle,
+            "error": "" if (title or avatar) else (out.get("error") or "meta_not_found"),
+        })
+
+    # Fallback: oEmbed по /live или watch — хотя бы имя автора
+    if not out.get("ok"):
+        try:
+            oembed_url = page
+            if '/watch' not in oembed_url and '/live' not in oembed_url:
+                oembed_url = page.rstrip('/') + '/live'
+            q = urlencode({"url": oembed_url, "format": "json"})
+            req = urllib.request.Request(
+                "https://www.youtube.com/oembed?" + q,
+                headers=headers,
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+            out.update({
+                "ok": True,
+                "title": data.get("author_name") or out.get("title") or raw,
+                "avatar": out.get("avatar") or "",
+                "error": "",
+            })
+        except Exception:
+            pass
+
+    _channel_meta_cache[raw] = (now, dict(out))
+    return out
+
+
+def enrich_saved_channel(channel_id: str) -> dict:
+    """Сохранить channel_id + title/avatar/handle."""
+    profile = fetch_channel_profile(channel_id)
+    return {
+        "channel_id": channel_id,
+        "title": profile.get("title") or "",
+        "avatar": profile.get("avatar") or "",
+        "handle": profile.get("handle") or "",
+    }
 
 
 def get_author_info(message):
@@ -514,8 +701,10 @@ def watch_chat(user_id: int, session_id: int | None = None):
     if session_id is None:
         session_id = get_chat_session(user_id)
 
-    backoff = 2.0
-    max_backoff = 30.0
+    backoff = 1.0
+    max_backoff = 12.0
+    gw["chat_last_ok_at"] = None
+    gw["chat_last_error"] = ""
 
     def still_mine() -> bool:
         return get_chat_session(user_id) == session_id and not stop_event.is_set()
@@ -529,6 +718,7 @@ def watch_chat(user_id: int, session_id: int | None = None):
         try:
             if still_mine():
                 gw["is_connected"] = False
+                gw["chat_reconnecting"] = True
 
             chat_instance = pytchat.create(video_id=video_id, interruptable=False)
             if not still_mine():
@@ -542,7 +732,9 @@ def watch_chat(user_id: int, session_id: int | None = None):
             _chat_instances[user_id] = chat_instance
             gw["is_connected"] = True
             gw["chat_reconnecting"] = False
-            backoff = 2.0
+            gw["chat_last_ok_at"] = time.time()
+            gw["chat_last_error"] = ""
+            backoff = 1.0
             print(f"✅ Подключился к чату: {video_id} (user {user_id})")
 
             while (
@@ -554,11 +746,14 @@ def watch_chat(user_id: int, session_id: int | None = None):
                     items = chat_instance.get()
                     if not still_mine():
                         break
-                    for message in items.sync_items():
+                    batch = items.sync_items()
+                    if batch:
+                        gw["chat_last_ok_at"] = time.time()
+                    for message in batch:
                         if not still_mine():
                             break
                         author, avatar = get_author_info(message)
-                        text = message.message
+                        text = message.message or ""
 
                         if gw["winner"] and author == gw["winner"]:
                             if gw["winner_first_message_at"] is None:
@@ -582,7 +777,7 @@ def watch_chat(user_id: int, session_id: int | None = None):
                         selection_in_progress = int(gw.get("countdown") or 0) > 0
                         session_collecting = gw["is_active"] or bool(gw.get("winner"))
                         if session_collecting and (not selection_in_progress) and accept_by_mode:
-                            if author not in gw["participants"]:
+                            if author and author not in gw["participants"]:
                                 gw["participants"].append(author)
                                 gw["participants_data"][author] = {"avatar": avatar}
                                 print(
@@ -591,16 +786,18 @@ def watch_chat(user_id: int, session_id: int | None = None):
                                 )
 
                 except Exception as e:
+                    gw["chat_last_error"] = str(e)
                     print(f"Ошибка чтения: {e}")
                     # Transient read error — keep trying until is_alive dies
-                    if stop_event.wait(0.5):
+                    if stop_event.wait(0.35):
                         break
                     continue
 
-                if stop_event.wait(0.5):
+                if stop_event.wait(0.25):
                     break
 
         except Exception as e:
+            gw["chat_last_error"] = str(e)
             print(f"Ошибка чата: {e}")
         finally:
             if still_mine():
@@ -638,6 +835,75 @@ def watch_chat(user_id: int, session_id: int | None = None):
         gw["is_connected"] = False
         gw["chat_reconnecting"] = False
         print(f"❌ Отключился от чата (user {user_id})")
+
+
+_watchdog_started = False
+_watchdog_lock = threading.Lock()
+
+
+def _chat_watchdog_loop():
+    """Если watcher умер или video_id устарел (новый эфир) — переподключить."""
+    while True:
+        time.sleep(15)
+        try:
+            for uid in list_giveaway_user_ids():
+                gw = get_giveaway_for_user(uid)
+                if gw.get("is_test_mode"):
+                    continue
+                if not _chat_should_listen(gw):
+                    continue
+                channel = (gw.get("bound_channel") or "").strip()
+                if not channel:
+                    stored = _channel_cache.get(uid) or {}
+                    channel = (stored.get("channel_id") or "").strip()
+
+                thread = get_chat_thread_for_user(uid)
+                alive = bool(thread and thread.is_alive())
+
+                # Перепроверка актуального эфира: стример мог начать новый эфир
+                if channel:
+                    try:
+                        fresh = get_live_video_id(channel)
+                    except Exception as exc:
+                        fresh = None
+                        print(f"🛡 Watchdog resolve failed (user {uid}): {exc}")
+                    cur = (gw.get("video_id") or "").strip()
+                    if fresh and cur and fresh != cur:
+                        print(
+                            f"🛡 Watchdog: новый эфир {fresh} (был {cur}) — переподключение (user {uid})"
+                        )
+                        gw["video_id"] = fresh
+                        try:
+                            _start_chat_watcher(uid)
+                        except Exception as exc:
+                            print(f"🛡 Watchdog restart failed (user {uid}): {exc}")
+                        continue
+
+                if not (gw.get("video_id") or "").strip():
+                    continue
+                if alive:
+                    continue
+                print(f"🛡 Watchdog: поток чата мёртв — перезапуск (user {uid})")
+                try:
+                    _start_chat_watcher(uid)
+                except Exception as exc:
+                    print(f"🛡 Watchdog restart failed (user {uid}): {exc}")
+        except Exception as exc:
+            print(f"🛡 Watchdog error: {exc}")
+
+
+def ensure_chat_watchdog() -> None:
+    global _watchdog_started
+    with _watchdog_lock:
+        if _watchdog_started:
+            return
+        _watchdog_started = True
+        threading.Thread(
+            target=_chat_watchdog_loop, daemon=True, name="chat-watchdog"
+        ).start()
+
+
+ensure_chat_watchdog()
 
 
 # === СТРАНИЦЫ ===
@@ -756,7 +1022,7 @@ def serve_sound(filename):
 def status():
     timer_seconds = None
     timer_stopped = False
-    
+
     if giveaway["winner_picked_at"]:
         if giveaway["winner_first_message_at"]:
             timer_seconds = giveaway["winner_first_message_at"] - giveaway["winner_picked_at"]
@@ -764,7 +1030,9 @@ def status():
         else:
             timer_seconds = time.time() - giveaway["winner_picked_at"]
             timer_stopped = False
-    
+
+    load_channel()
+
     return jsonify({
         "video_id": giveaway["video_id"],
         "keyword": giveaway["keyword"],
@@ -779,6 +1047,11 @@ def status():
         "is_active": giveaway["is_active"],
         "is_connected": giveaway["is_connected"],
         "chat_reconnecting": bool(giveaway.get("chat_reconnecting")),
+        "chat_last_error": giveaway.get("chat_last_error") or "",
+        "channel_id": (saved_channel.get("channel_id") or ""),
+        "channel_title": (saved_channel.get("title") or ""),
+        "channel_avatar": (saved_channel.get("avatar") or ""),
+        "channel_handle": (saved_channel.get("handle") or ""),
         "countdown": giveaway["countdown"],
         "is_test_mode": giveaway.get("is_test_mode", False),
         "timer_seconds": timer_seconds,
@@ -797,6 +1070,14 @@ def start():
         return jsonify({"success": False, "error": "Не удалось найти активный стрим на этом канале"})
     
     uid = get_user_id()
+    # Запомнить канал при запуске
+    saved_channel.clear()
+    saved_channel.update(enrich_saved_channel(channel_input.strip()))
+    if uid:
+        _channel_cache[uid] = dict(saved_channel)
+    save_channel()
+    giveaway["bound_channel"] = channel_input.strip()
+
     # Сброс состояния розыгрыша — чат перезапускаем отдельно, без гонки stop/clear
     giveaway["video_id"] = video_id
     giveaway["keyword"] = data.get("keyword", "")
@@ -813,10 +1094,13 @@ def start():
     giveaway["is_test_mode"] = False
     giveaway["test_participant_seq"] = 0
     giveaway["countdown"] = 0
+    giveaway["is_connected"] = False
     giveaway["chat_reconnecting"] = False
+    giveaway["chat_last_ok_at"] = None
+    giveaway["chat_last_error"] = ""
     
     mode_text = "любое сообщение" if giveaway["accept_any_message"] else f"слово: {giveaway['keyword']}"
-    print(f"🎲 Розыгрыш запущен! Режим: {mode_text}")
+    print(f"🎲 Розыгрыш запущен! Режим: {mode_text} video={video_id}")
     
     _start_chat_watcher(uid)
     
@@ -995,6 +1279,7 @@ def giveaway_update():
 @app.route('/api/reconnect-chat', methods=['POST'])
 def reconnect_chat():
     """Сохранить канал и переподключить pytchat, не сбрасывая участников/победителя."""
+    global saved_channel
     data = request.get_json(silent=True) or {}
     channel_input = (data.get("channel") or saved_channel.get("channel_id") or "").strip()
     if not channel_input:
@@ -1003,17 +1288,20 @@ def reconnect_chat():
     if not video_id:
         return jsonify({"success": False, "error": "Не удалось найти активный стрим"})
 
-    saved_channel["channel_id"] = channel_input
+    saved_channel = enrich_saved_channel(channel_input)
+    uid = get_user_id()
+    if uid:
+        _channel_cache[uid] = dict(saved_channel)
     save_channel()
+    giveaway["bound_channel"] = channel_input
 
     giveaway["video_id"] = video_id
     should_run = bool(giveaway.get("is_active") or giveaway.get("winner"))
     if not should_run or giveaway.get("is_test_mode"):
-        return jsonify({"success": True, "video_id": video_id, "saved_only": True})
+        return jsonify({"success": True, "video_id": video_id, "saved_only": True, **saved_channel})
 
-    uid = get_user_id()
     _start_chat_watcher(uid)
-    return jsonify({"success": True, "video_id": video_id})
+    return jsonify({"success": True, "video_id": video_id, **saved_channel})
 
 
 @app.route('/api/reset', methods=['POST'])
@@ -1052,9 +1340,27 @@ def get_channel():
 @app.route('/api/channel', methods=['POST'])
 def update_channel():
     global saved_channel
-    saved_channel = request.json
+    data = request.get_json(silent=True) or {}
+    channel_id = str(data.get("channel_id") or data.get("channel") or "").strip()
+    if not channel_id:
+        return jsonify({"success": False, "error": "Пустой канал"}), 400
+    saved_channel = enrich_saved_channel(channel_id)
+    uid = _settings_user_id()
+    if uid:
+        _channel_cache[uid] = dict(saved_channel)
     save_channel()
-    return jsonify({"success": True})
+    return jsonify({"success": True, **saved_channel})
+
+
+@app.route('/api/channel-meta')
+def channel_meta_api():
+    channel = (request.args.get("channel") or saved_channel.get("channel_id") or "").strip()
+    if not channel:
+        load_channel()
+        channel = (saved_channel.get("channel_id") or "").strip()
+    if not channel:
+        return jsonify({"ok": False, "error": "no_channel"})
+    return jsonify(fetch_channel_profile(channel))
 
 
 # === API НАСТРОЕК ВИДЖЕТА ===

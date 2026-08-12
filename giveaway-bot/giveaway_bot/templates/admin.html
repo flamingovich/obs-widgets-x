@@ -653,11 +653,14 @@
             acceptAnyMessageDirty = true;
         });
 
-        setInterval(updateStatus, 1000);
+        let adminStatusInFlight = false;
+        setInterval(updateStatus, 1500);
         
         async function updateStatus() {
+            if (adminStatusInFlight) return;
+            adminStatusInFlight = true;
             try {
-                const res = await fetch('/api/status');
+                const res = await fetch('/api/status', { cache: 'no-store' });
                 const data = await res.json();
                 
                 const dot = document.getElementById('statusDot');
@@ -795,6 +798,7 @@
                 }
                 
             } catch (e) {}
+            finally { adminStatusInFlight = false; }
         }
         
         async function startGiveaway() {

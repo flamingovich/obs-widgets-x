@@ -25,6 +25,9 @@ GIVEAWAY_TEMPLATE = {
     "is_active": False,
     "is_connected": False,
     "chat_reconnecting": False,
+    "chat_last_ok_at": None,
+    "chat_last_error": "",
+    "bound_channel": "",
     "countdown": 0,
     "is_test_mode": False,
     "test_participant_seq": 0,
@@ -97,6 +100,11 @@ def get_giveaway_for_user(user_id: int) -> dict:
         if user_id not in _giveaways:
             _giveaways[user_id] = copy.deepcopy(GIVEAWAY_TEMPLATE)
         return _giveaways[user_id]
+
+
+def list_giveaway_user_ids() -> list[int]:
+    with _ctx_lock:
+        return list(_giveaways.keys())
 
 
 def get_stop_flag() -> threading.Event:

@@ -244,6 +244,57 @@
         .icon-btn.active { background: rgba(124, 77, 255, 0.25); }
         .icon-btn.active svg { fill: #7c4dff; }
 
+        .channel-bound {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            margin: 0 0 10px;
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 8px;
+        }
+        .channel-bound.show { display: flex; }
+        .channel-bound img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: #333;
+            flex-shrink: 0;
+        }
+        .channel-bound .ch-avatar-fallback {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #3a3a3a;
+            color: #bbb;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        .channel-bound .ch-meta { min-width: 0; flex: 1; }
+        .channel-bound .ch-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .channel-bound .ch-handle {
+            font-size: 11px;
+            color: #888;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #channelEditWrap { display: none; }
+        #channelEditWrap.show { display: block; }
+
         .settings-panel {
             display: none;
             border: 1px solid #333;
@@ -346,16 +397,29 @@
 
         <div class="settings-panel" id="settingsPanel">
             <p class="hint" style="margin:0 0 6px;"><span class="dot" id="gwDot"></span><span id="gwLine">—</span></p>
-            <label>Канал (@handle или ссылка)</label>
-            <input type="text" id="channelInput" placeholder="@channel" autocomplete="off">
+
+            <div id="channelEditWrap" class="show">
+                <label>Канал (@handle или ссылка)</label>
+                <input type="text" id="channelInput" placeholder="@channel или watch?v=…" autocomplete="off">
+            </div>
             <div class="row">
-                <button type="button" id="btnSaveChannel">Сохранить ссылку</button>
-                <button type="button" id="btnReconnect">Переподключить чат</button>
+                <button type="button" id="btnSaveChannel">Сохранить канал</button>
+                <button type="button" id="btnReconnect" title="Найти текущий эфир и заново подключить pytchat. Нужно, если чат отвалился или сменили канал во время розыгрыша.">Переподключить чат</button>
+            </div>
+            <p class="hint" id="channelHint" style="margin:6px 0 0;">Укажите канал и нажмите «Сохранить канал».</p>
+        </div>
+
+        <div class="channel-bound" id="channelBoundMain">
+            <img id="channelAvatarMain" alt="" hidden>
+            <div class="ch-avatar-fallback" id="channelAvatarFallbackMain">?</div>
+            <div class="ch-meta">
+                <div class="ch-title" id="channelTitleMain">Канал не привязан</div>
+                <div class="ch-handle" id="channelHandleMain">—</div>
             </div>
         </div>
 
         <input type="text" id="keywordInput" placeholder="Кодовое слово" autocomplete="off">
-        <label class="check" id="acceptAnyWrap" style="display:none;"><input type="checkbox" id="acceptAny"> Засчитывать любое сообщение</label>
+        <label class="check" id="acceptAnyWrap"><input type="checkbox" id="acceptAny"> Засчитывать любое сообщение</label>
         <div class="row" id="rowIdle">
             <button type="button" class="primary" id="btnStart">
                 <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
@@ -475,6 +539,15 @@
         }
 
         function setStatus(el, text, isErr) {
+            const hint = document.getElementById('channelHint');
+            if (hint && text && !isErr) {
+                hint.textContent = text;
+                hint.style.color = '#9ad29a';
+            }
+            if (hint && text && isErr) {
+                hint.textContent = text;
+                hint.style.color = '#f0a0a0';
+            }
             if (isErr && text) alert(text);
         }
 
@@ -504,50 +577,210 @@
             return fetch(url, o);
         }
 
+        let channelEditing = false;
+        let boundChannel = { channel_id: '', title: '', avatar: '', handle: '' };
+
+        function applyChannelCard(data) {
+            const id = (data && (data.channel_id || data.channel)) || '';
+            const title = (data && (data.title || data.channel_title)) || '';
+            const avatar = (data && (data.avatar || data.channel_avatar)) || '';
+            const handle = (data && (data.handle || data.channel_handle)) || '';
+            boundChannel = {
+                channel_id: id,
+                title: title || handle || id,
+                avatar,
+                handle: handle || (id.startsWith('@') ? id : ''),
+            };
+
+            const card = document.getElementById('channelBoundMain');
+            const img = document.getElementById('channelAvatarMain');
+            const fb = document.getElementById('channelAvatarFallbackMain');
+            const titleEl = document.getElementById('channelTitleMain');
+            const handleEl = document.getElementById('channelHandleMain');
+
+            if (!id) {
+                card.classList.remove('show');
+                titleEl.textContent = 'Канал не привязан';
+                handleEl.textContent = '—';
+                img.hidden = true;
+                fb.style.display = 'none';
+                setChannelEditMode(true);
+                return;
+            }
+
+            card.classList.add('show');
+            titleEl.textContent = boundChannel.title || id;
+            handleEl.textContent = boundChannel.handle || id;
+            if (avatar) {
+                img.hidden = false;
+                img.src = avatar;
+                fb.style.display = 'none';
+                img.onerror = () => {
+                    img.hidden = true;
+                    fb.style.display = 'flex';
+                    fb.textContent = (boundChannel.title || '?').slice(0, 1).toUpperCase();
+                };
+            } else {
+                img.hidden = true;
+                fb.style.display = 'flex';
+                fb.textContent = (boundChannel.title || id || '?').slice(0, 1).toUpperCase();
+            }
+
+            if (!channelEditing) setChannelEditMode(false);
+        }
+
+        function setChannelEditMode(editing) {
+            channelEditing = !!editing;
+            const wrap = document.getElementById('channelEditWrap');
+            const btn = document.getElementById('btnSaveChannel');
+            const hasBound = !!(boundChannel && boundChannel.channel_id);
+
+            if (!hasBound) {
+                wrap.classList.add('show');
+                btn.textContent = 'Сохранить канал';
+                return;
+            }
+
+            if (channelEditing) {
+                wrap.classList.add('show');
+                btn.textContent = 'Сохранить канал';
+                const input = document.getElementById('channelInput');
+                if (document.activeElement !== input) input.value = boundChannel.channel_id || '';
+            } else {
+                wrap.classList.remove('show');
+                btn.textContent = 'Изменить канал';
+            }
+        }
+
+        function btnSaveBusy(busy) {
+            const btn = document.getElementById('btnSaveChannel');
+            btn.disabled = !!busy;
+            if (busy) btn.textContent = 'Сохраняю…';
+            else if (boundChannel.channel_id && !channelEditing) btn.textContent = 'Изменить канал';
+            else btn.textContent = 'Сохранить канал';
+        }
+
+        function currentChannelValue() {
+            const input = document.getElementById('channelInput');
+            const typed = (input && input.value || '').trim();
+            if (typed) return typed;
+            return (boundChannel.channel_id || '').trim();
+        }
+
         async function loadChannel() {
             try {
-                const res = await fetch('/api/channel');
+                const res = await gwFetch('/api/channel');
                 const d = await res.json();
-                if (d && d.channel_id) document.getElementById('channelInput').value = d.channel_id;
-            } catch (_) {}
+                if (d && d.channel_id) {
+                    document.getElementById('channelInput').value = d.channel_id;
+                    applyChannelCard(d);
+                    if (!d.title || !d.avatar) {
+                        const meta = await gwFetch('/api/channel', {
+                            method: 'POST',
+                            body: JSON.stringify({ channel_id: d.channel_id })
+                        });
+                        const m = await meta.json().catch(() => d);
+                        applyChannelCard(m);
+                    }
+                } else {
+                    applyChannelCard({});
+                }
+            } catch (_) {
+                applyChannelCard({});
+            }
         }
 
         document.getElementById('btnSaveChannel').addEventListener('click', async () => {
+            const hasBound = !!(boundChannel && boundChannel.channel_id);
+            if (hasBound && !channelEditing) {
+                setChannelEditMode(true);
+                setStatus(null, 'Введите новый канал и снова нажмите «Сохранить канал»');
+                return;
+            }
+
             const channel_id = document.getElementById('channelInput').value.trim();
-            await gwFetch('/api/channel', { method: 'POST', body: JSON.stringify({ channel_id }) });
-            setStatus(null, 'Ссылка на канал сохранена');
+            if (!channel_id) { setStatus(null, 'Укажите канал или ссылку', true); return; }
+
+            btnSaveBusy(true);
+            try {
+                const res = await gwFetch('/api/channel', {
+                    method: 'POST',
+                    body: JSON.stringify({ channel_id })
+                });
+                const d = await res.json().catch(() => ({}));
+                if (!d.success) {
+                    setStatus(null, d.error || 'Не удалось сохранить', true);
+                    return;
+                }
+                applyChannelCard(d);
+                setChannelEditMode(false);
+
+                const check = await gwFetch('/api/reconnect-chat', {
+                    method: 'POST',
+                    body: JSON.stringify({ channel: channel_id })
+                });
+                const c = await check.json().catch(() => ({}));
+                if (c.title || c.avatar) applyChannelCard(c);
+                if (c.success && c.video_id) {
+                    setStatus(null, 'Канал привязан · эфир найден');
+                } else if (c.success) {
+                    setStatus(null, 'Канал привязан');
+                } else {
+                    setStatus(null, 'Канал привязан, но эфир не найден: ' + (c.error || 'нет стрима'), true);
+                }
+            } finally {
+                btnSaveBusy(false);
+            }
         });
 
         document.getElementById('btnReconnect').addEventListener('click', async () => {
-            const channel = document.getElementById('channelInput').value.trim();
+            const channel = currentChannelValue();
+            if (!channel) { setStatus(null, 'Укажите канал', true); return; }
             const res = await gwFetch('/api/reconnect-chat', { method: 'POST', body: JSON.stringify({ channel }) });
             const d = await res.json().catch(() => ({}));
             if (d.success) {
-                setStatus(null, d.saved_only ? 'Канал сохранён (чат не запущен)' : 'Чат переподключён');
+                if (d.title || d.avatar || d.channel_id) applyChannelCard(d);
+                if (d.saved_only) {
+                    setStatus(null, 'Эфир найден. Чат подключится после «Запуск».');
+                } else {
+                    setStatus(null, 'Чат переподключён');
+                }
             } else {
                 setStatus(null, d.error || 'Ошибка переподключения', true);
             }
         });
 
         document.getElementById('btnStart').addEventListener('click', async () => {
-            const channel = document.getElementById('channelInput').value.trim();
+            const channel = currentChannelValue();
             const keyword = document.getElementById('keywordInput').value.trim();
+            const accept_any_message = document.getElementById('acceptAny').checked;
             if (!channel) { setStatus(null, 'Укажите канал', true); return; }
-            if (!keyword) { setStatus(null, 'Укажите кодовое слово', true); return; }
+            if (!accept_any_message && !keyword) {
+                setStatus(null, 'Укажите кодовое слово или включите «любое сообщение»', true);
+                return;
+            }
             const res = await gwFetch('/api/start', {
                 method: 'POST',
-                body: JSON.stringify({ channel, keyword, accept_any_message: false })
+                body: JSON.stringify({ channel, keyword, accept_any_message })
             });
             const d = await res.json().catch(() => ({}));
             if (!d.success) setStatus(null, d.error || 'Ошибка запуска', true);
-            else setStatus(null, 'Розыгрыш запущен');
+            else {
+                setChannelEditMode(false);
+                setStatus(null, 'Розыгрыш запущен');
+            }
         });
 
         document.getElementById('btnStartTest').addEventListener('click', async () => {
             const keyword = document.getElementById('keywordInput').value.trim();
+            const accept_any_message = document.getElementById('acceptAny').checked;
+            if (!accept_any_message && !keyword) {
+                setStatus(null, 'Укажите кодовое слово или включите «любое сообщение»', true);
+                return;
+            }
             const res = await gwFetch('/api/start-test', {
                 method: 'POST',
-                body: JSON.stringify({ keyword, accept_any_message: false })
+                body: JSON.stringify({ keyword, accept_any_message })
             });
             const d = await res.json().catch(() => ({}));
             if (!d.success) setStatus(null, d.error || 'Ошибка запуска теста', true);
@@ -703,34 +936,60 @@
             });
         }
 
+        let gwPollInFlight = false;
+
         async function pollGiveaway() {
+            if (gwPollInFlight) return;
+            gwPollInFlight = true;
             try {
-                const res = await fetch('/api/status');
+                const res = await fetch('/api/status', { cache: 'no-store' });
                 const d = await res.json();
 
                 const dot = document.getElementById('gwDot');
                 const line = document.getElementById('gwLine');
+                const chSaved = (d.channel_id || '').trim();
+                const chInput = document.getElementById('channelInput');
+                if (chInput && document.activeElement !== chInput && chSaved && channelEditing) {
+                    // в режиме редактирования не перетираем то, что печатает пользователь
+                } else if (chInput && document.activeElement !== chInput && chSaved && !channelEditing) {
+                    chInput.value = chSaved;
+                }
+                if (chSaved && (chSaved !== boundChannel.channel_id || d.channel_title || d.channel_avatar)) {
+                    applyChannelCard({
+                        channel_id: chSaved,
+                        title: d.channel_title || boundChannel.title,
+                        avatar: d.channel_avatar || boundChannel.avatar,
+                        handle: d.channel_handle || boundChannel.handle,
+                    });
+                }
+                const chLabel = boundChannel.title
+                    ? (' · ' + boundChannel.title)
+                    : (chSaved ? (' · ' + chSaved) : '');
                 if (d.countdown > 0) {
                     dot.className = 'dot on';
-                    line.textContent = 'Отсчёт: ' + d.countdown;
+                    line.textContent = 'Отсчёт: ' + d.countdown + chLabel;
                 } else if (d.is_test_mode && d.is_active) {
                     dot.className = 'dot on';
-                    line.textContent = 'Тестовый режим';
+                    line.textContent = 'Тестовый режим' + chLabel;
                 } else if (d.chat_reconnecting && (d.is_active || d.winner)) {
                     dot.className = 'dot on';
-                    line.textContent = 'Чат отвалился — переподключаю…';
+                    line.textContent = 'Чат отвалился — переподключаю…' + chLabel;
                 } else if ((d.is_active || d.winner) && d.is_connected) {
                     dot.className = 'dot on';
-                    line.textContent = d.winner && !d.is_active ? 'Чат подключён · ждём победителя' : 'Чат подключён';
+                    line.textContent = (d.winner && !d.is_active ? 'Чат подключён · ждём победителя' : 'Чат подключён') + chLabel;
                 } else if (d.is_active) {
                     dot.className = 'dot on';
-                    line.textContent = 'Подключение…';
+                    const err = (d.chat_last_error || '').trim();
+                    line.textContent = (err ? ('Подключение… (' + err.slice(0, 60) + ')') : 'Подключение…') + chLabel;
                 } else if (d.winner) {
                     dot.className = 'dot on';
-                    line.textContent = 'Победитель выбран';
+                    line.textContent = 'Победитель выбран' + chLabel;
+                } else if (chSaved) {
+                    dot.className = 'dot';
+                    line.textContent = 'Канал сохранён' + chLabel + ' · розыгрыш не запущен';
                 } else {
                     dot.className = 'dot';
-                    line.textContent = 'Не активен';
+                    line.textContent = 'Канал не указан · розыгрыш не запущен';
                 }
 
                 const countEl = document.getElementById('gwCount');
@@ -748,7 +1007,8 @@
                 if (document.activeElement !== kwEl) kwEl.value = d.keyword || '';
                 const accEl = document.getElementById('acceptAny');
                 if (document.activeElement !== accEl) accEl.checked = !!d.accept_any_message;
-                document.getElementById('acceptAnyWrap').style.display = live ? '' : 'none';
+                // Чекбокс виден до запуска (рядом с Запуск) и во время розыгрыша
+                document.getElementById('acceptAnyWrap').style.display = '';
                 document.getElementById('rowIdle').style.display = live ? 'none' : '';
                 document.getElementById('rowLive').style.display = live ? '' : 'none';
                 document.getElementById('rowLive2').style.display = live ? '' : 'none';
@@ -786,6 +1046,7 @@
                     lastMsgSig = '';
                 }
             } catch (_) {}
+            finally { gwPollInFlight = false; }
         }
 
         function escapeHtml(s) {
@@ -820,7 +1081,7 @@
 
             loadChannel();
             pollGiveaway();
-            setInterval(pollGiveaway, 500);
+            setInterval(pollGiveaway, 1200);
         })();
     </script>
 </body>

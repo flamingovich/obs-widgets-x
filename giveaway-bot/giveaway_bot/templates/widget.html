@@ -1099,9 +1099,14 @@
             }
         }
         
+        let statusInFlight = false;
+        let lastWidgetState = 'hidden';
+
         async function update() {
+            if (statusInFlight) return;
+            statusInFlight = true;
             try {
-                const res = await fetch('/api/status');
+                const res = await fetch('/api/status', { cache: 'no-store' });
                 const data = await res.json();
                 
                 const widget = document.getElementById('widget');
@@ -1118,6 +1123,7 @@
                 } else if (data.is_active) {
                     newState = 'active';
                 }
+                lastWidgetState = newState;
                 
                 // Countdown
                 if (newState === 'countdown') {
@@ -1226,12 +1232,24 @@
                 
             } catch (e) {
                 console.error('Error updating:', e);
+            } finally {
+                statusInFlight = false;
             }
+        }
+
+        function scheduleStatusPoll() {
+            const ms = lastWidgetState === 'countdown' ? 400
+                : (lastWidgetState === 'active' || lastWidgetState === 'winner') ? 1000
+                : 2000;
+            setTimeout(async () => {
+                await update();
+                scheduleStatusPoll();
+            }, ms);
         }
         
         loadSettings();
-        setInterval(update, 200);
-        setInterval(loadSettings, 5000);
+        update().then(scheduleStatusPoll);
+        setInterval(loadSettings, 15000);
     </script>
 </body>
 </html>
