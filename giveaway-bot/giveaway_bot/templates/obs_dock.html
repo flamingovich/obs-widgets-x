@@ -119,6 +119,7 @@
             fill: currentColor;
             flex-shrink: 0;
         }
+        button .btn-lbl { white-space: nowrap; }
         button:hover:not(:disabled) { background: #444; }
         button:disabled { opacity: 0.45; cursor: not-allowed; }
         button.primary { background: #7c4dff; color: #fff; }
@@ -131,6 +132,10 @@
             color: #999;
         }
         button.outline:hover:not(:disabled) { border-color: #666; color: #fff; }
+        button.is-busy {
+            opacity: 0.85;
+            cursor: wait;
+        }
 
         .check {
             display: flex;
@@ -381,6 +386,58 @@
 
         #winnerName { font-weight: 500; font-size: 14px; color: #fff; margin-bottom: 4px; }
         #timerLabel { font-size: 12px; color: #888; }
+
+        .dock-roulette {
+            display: none;
+            margin-top: 10px;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .dock-roulette.show { display: flex; }
+        .dock-roulette-frame {
+            position: relative;
+            height: 32px;
+            overflow: hidden;
+            border-radius: 6px;
+            background: #1e1e1e;
+            border: 1px solid #333;
+        }
+        .dock-roulette-track {
+            will-change: transform;
+        }
+        .dock-roulette-item {
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 28px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .dock-roulette-marker {
+            position: absolute;
+            top: 50%;
+            width: 12px;
+            height: 10px;
+            clip-path: polygon(0% 0%, 100% 50%, 0% 100%);
+            background: linear-gradient(135deg, #ffbe3b 0%, #ff8a39 45%, #b39ddb 100%);
+            z-index: 2;
+            transform: translateY(-50%);
+        }
+        .dock-roulette-marker.left { left: 6px; }
+        .dock-roulette-marker.right {
+            right: 6px;
+            transform: translateY(-50%) scaleX(-1);
+        }
+        .dock-roulette-hint {
+            font-size: 11px;
+            color: #888;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -421,38 +478,46 @@
         <input type="text" id="keywordInput" placeholder="Кодовое слово" autocomplete="off">
         <label class="check" id="acceptAnyWrap"><input type="checkbox" id="acceptAny"> Засчитывать любое сообщение</label>
         <div class="row" id="rowIdle">
-            <button type="button" class="primary" id="btnStart">
+            <button type="button" class="primary" id="btnStart" data-label="Запуск">
                 <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-                Запуск
+                <span class="btn-lbl">Запуск</span>
             </button>
-            <button type="button" id="btnStartTest">
+            <button type="button" id="btnStartTest" data-label="Тест запуск">
                 <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.8 18.4 14 10.67V6.5l1.35-1.69c.26-.33.04-.81-.39-.81H9.04c-.43 0-.65.48-.39.81L10 6.5v4.17L4.2 18.4c-.49.66-.02 1.6.8 1.6h14c.82 0 1.29-.94.8-1.6z"/></svg>
-                Тест запуск
+                <span class="btn-lbl">Тест запуск</span>
             </button>
         </div>
         <div class="row" id="rowLive" style="display:none;">
-            <button type="button" id="btnAddTestParticipant" style="display:none;">
+            <button type="button" id="btnAddTestParticipant" style="display:none;" data-label="Добавить участника">
                 <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                Добавить участника
+                <span class="btn-lbl">Добавить участника</span>
             </button>
-            <button type="button" class="primary" id="btnPick">
+            <button type="button" class="primary" id="btnPick" data-label="Победитель">
                 <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94.63 1.5 1.98 2.63 3.61 2.96V19H7v2h10v-2h-4v-3.1c1.63-.33 2.98-1.46 3.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/></svg>
-                Победитель
+                <span class="btn-lbl">Победитель</span>
             </button>
         </div>
         <div class="row" id="rowLive2" style="display:none;">
-            <button type="button" id="btnReroll">
+            <button type="button" id="btnReroll" data-label="Реролл">
                 <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
-                Реролл
+                <span class="btn-lbl">Реролл</span>
             </button>
-            <button type="button" class="danger" id="btnResetGw">
+            <button type="button" class="danger" id="btnResetGw" data-label="Сброс">
                 <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                Сброс
+                <span class="btn-lbl">Сброс</span>
             </button>
         </div>
         <div class="status" id="gwMeta">
             <svg class="meta-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
             <span id="gwMetaText">Участников: <span id="gwCount">— чел.</span></span>
+        </div>
+        <div class="dock-roulette" id="dockRoulette" aria-live="polite">
+            <div class="dock-roulette-frame">
+                <span class="dock-roulette-marker left" aria-hidden="true"></span>
+                <div class="dock-roulette-track" id="dockRouletteTrack"></div>
+                <span class="dock-roulette-marker right" aria-hidden="true"></span>
+            </div>
+            <div class="dock-roulette-hint" id="dockRouletteHint">Выбор победителя…</div>
         </div>
     </div>
 
@@ -533,6 +598,167 @@
         let cardRound = null;
         let lastMsgSig = '';
         let lastGwCount = null;
+        let actionBusy = null; // start | startTest | pick | reroll
+        let dockRollState = 'idle'; // idle | rolling | done
+        let dockRollFor = '';
+        const DOCK_ROLL_H = 32;
+
+        function setBtnLabel(id, text) {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            const lbl = btn.querySelector('.btn-lbl');
+            if (lbl) lbl.textContent = text;
+            else btn.textContent = text;
+        }
+
+        function restoreBtnLabel(id) {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            setBtnLabel(id, btn.dataset.label || '');
+            btn.classList.remove('is-busy');
+        }
+
+        function setActionBusy(kind, busyText) {
+            actionBusy = kind;
+            const map = {
+                start: 'btnStart',
+                startTest: 'btnStartTest',
+                pick: 'btnPick',
+                reroll: 'btnReroll',
+            };
+            const id = map[kind];
+            if (!id) return;
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            btn.disabled = true;
+            btn.classList.add('is-busy');
+            setBtnLabel(id, busyText);
+            // блок соседних действий на время запроса
+            if (kind === 'start' || kind === 'startTest') {
+                document.getElementById('btnStart').disabled = true;
+                document.getElementById('btnStartTest').disabled = true;
+            }
+            if (kind === 'pick' || kind === 'reroll') {
+                document.getElementById('btnPick').disabled = true;
+                document.getElementById('btnReroll').disabled = true;
+            }
+        }
+
+        function clearActionBusy() {
+            const was = actionBusy;
+            actionBusy = null;
+            ['btnStart', 'btnStartTest', 'btnPick', 'btnReroll'].forEach(restoreBtnLabel);
+            return was;
+        }
+
+        function randomDockName(pool) {
+            if (!pool.length) return 'Участник';
+            return pool[Math.floor(Math.random() * pool.length)];
+        }
+
+        function renderDockTrack(names) {
+            const track = document.getElementById('dockRouletteTrack');
+            if (!track) return;
+            track.innerHTML = '';
+            (names || []).forEach((name) => {
+                const row = document.createElement('div');
+                row.className = 'dock-roulette-item';
+                row.textContent = String(name || '');
+                track.appendChild(row);
+            });
+        }
+
+        function showDockRoulette(hint) {
+            const box = document.getElementById('dockRoulette');
+            const h = document.getElementById('dockRouletteHint');
+            if (box) box.classList.add('show');
+            if (h && hint) h.textContent = hint;
+        }
+
+        function hideDockRoulette() {
+            const box = document.getElementById('dockRoulette');
+            if (box) box.classList.remove('show');
+            dockRollState = 'idle';
+            dockRollFor = '';
+            const track = document.getElementById('dockRouletteTrack');
+            if (track) {
+                track.style.transition = 'none';
+                track.style.transform = 'translateY(0)';
+                track.innerHTML = '';
+            }
+        }
+
+        function startDockWinnerRoll(participants, winnerName, hint) {
+            const track = document.getElementById('dockRouletteTrack');
+            if (!track) return;
+            const finalName = String(winnerName || 'Победитель');
+            if (dockRollState === 'rolling' && dockRollFor === finalName) return;
+            if (dockRollState === 'done' && dockRollFor === finalName) return;
+
+            const pool = (Array.isArray(participants) ? participants : [])
+                .map((x) => String(x || '').trim())
+                .filter(Boolean);
+            const names = pool.length ? pool : ['Участник'];
+
+            dockRollState = 'rolling';
+            dockRollFor = finalName;
+            showDockRoulette(hint || 'Выбор победителя…');
+
+            const base = [];
+            for (let i = 0; i < 10; i += 1) base.push(randomDockName(names));
+            const tail = [];
+            for (let i = 0; i < 28; i += 1) tail.push(randomDockName(names));
+            const hold = [];
+            for (let i = 0; i < 10; i += 1) hold.push(finalName);
+            const rows = base.concat(tail, [finalName], hold);
+            renderDockTrack(rows);
+
+            const winnerIndex = base.length + tail.length;
+            const target = winnerIndex * DOCK_ROLL_H;
+            const duration = 4800;
+
+            track.style.transition = 'none';
+            track.style.transform = 'translateY(0)';
+            void track.offsetWidth;
+            track.style.transition = `transform ${duration}ms cubic-bezier(0.12, 0.82, 0.18, 1)`;
+            track.style.transform = `translateY(-${target}px)`;
+
+            const onDone = () => {
+                track.removeEventListener('transitionend', onDone);
+                dockRollState = 'done';
+                renderDockTrack([finalName, finalName, finalName]);
+                track.style.transition = 'none';
+                track.style.transform = 'translateY(0)';
+                const h = document.getElementById('dockRouletteHint');
+                if (h) h.textContent = 'Победитель: ' + finalName;
+            };
+            track.addEventListener('transitionend', onDone, { once: true });
+        }
+
+        function syncDockRoulette(d) {
+            const selecting = (Number(d.countdown) || 0) > 0;
+            const pending = d.pending_winner || '';
+            const winner = d.winner || '';
+            if (selecting && pending) {
+                const hint = actionBusy === 'reroll' ? 'Реролл…' : 'Выбор победителя…';
+                startDockWinnerRoll(d.participants || [], pending, hint);
+                return;
+            }
+            if (!selecting && winner && dockRollState === 'rolling') {
+                // дождаться transitionend — или форсировать done
+                return;
+            }
+            if (!selecting && winner && dockRollState === 'done') {
+                // коротко держим барабан, потом можно спрятать через пару секунд
+                return;
+            }
+            if (!selecting && !winner && dockRollState !== 'idle') {
+                hideDockRoulette();
+            }
+            if (!selecting && !d.is_active && !winner) {
+                hideDockRoulette();
+            }
+        }
 
         function wheelBase() {
             return window.location.origin;
@@ -759,15 +985,24 @@
                 setStatus(null, 'Укажите кодовое слово или включите «любое сообщение»', true);
                 return;
             }
-            const res = await gwFetch('/api/start', {
-                method: 'POST',
-                body: JSON.stringify({ channel, keyword, accept_any_message })
-            });
-            const d = await res.json().catch(() => ({}));
-            if (!d.success) setStatus(null, d.error || 'Ошибка запуска', true);
-            else {
-                setChannelEditMode(false);
-                setStatus(null, 'Розыгрыш запущен');
+            setActionBusy('start', 'Запускается');
+            try {
+                const res = await gwFetch('/api/start', {
+                    method: 'POST',
+                    body: JSON.stringify({ channel, keyword, accept_any_message })
+                });
+                const d = await res.json().catch(() => ({}));
+                if (!d.success) {
+                    clearActionBusy();
+                    setStatus(null, d.error || 'Ошибка запуска', true);
+                } else {
+                    setChannelEditMode(false);
+                    setStatus(null, 'Розыгрыш запущен');
+                    // busy снимем в poll, когда is_active
+                }
+            } catch (_) {
+                clearActionBusy();
+                setStatus(null, 'Ошибка запуска', true);
             }
         });
 
@@ -778,13 +1013,23 @@
                 setStatus(null, 'Укажите кодовое слово или включите «любое сообщение»', true);
                 return;
             }
-            const res = await gwFetch('/api/start-test', {
-                method: 'POST',
-                body: JSON.stringify({ keyword, accept_any_message })
-            });
-            const d = await res.json().catch(() => ({}));
-            if (!d.success) setStatus(null, d.error || 'Ошибка запуска теста', true);
-            else setStatus(null, 'Тестовый розыгрыш запущен');
+            setActionBusy('startTest', 'Запускается');
+            try {
+                const res = await gwFetch('/api/start-test', {
+                    method: 'POST',
+                    body: JSON.stringify({ keyword, accept_any_message })
+                });
+                const d = await res.json().catch(() => ({}));
+                if (!d.success) {
+                    clearActionBusy();
+                    setStatus(null, d.error || 'Ошибка запуска теста', true);
+                } else {
+                    setStatus(null, 'Тестовый розыгрыш запущен');
+                }
+            } catch (_) {
+                clearActionBusy();
+                setStatus(null, 'Ошибка запуска теста', true);
+            }
         });
 
         document.getElementById('acceptAny').addEventListener('change', async () => {
@@ -804,21 +1049,45 @@
         });
 
         document.getElementById('btnPick').addEventListener('click', async () => {
-            const res = await gwFetch('/api/pick', { method: 'POST', body: '{}' });
-            const d = await res.json().catch(() => ({}));
-            if (!d.success) setStatus(null, d.error || 'Не удалось выбрать победителя', true);
-            else setStatus(null, 'Идёт ролл…');
+            setActionBusy('pick', 'Выбор победителя');
+            try {
+                const res = await gwFetch('/api/pick', { method: 'POST', body: '{}' });
+                const d = await res.json().catch(() => ({}));
+                if (!d.success) {
+                    clearActionBusy();
+                    setStatus(null, d.error || 'Не удалось выбрать победителя', true);
+                } else {
+                    setStatus(null, 'Идёт ролл…');
+                }
+            } catch (_) {
+                clearActionBusy();
+                setStatus(null, 'Не удалось выбрать победителя', true);
+            }
         });
 
         document.getElementById('btnReroll').addEventListener('click', async () => {
-            const res = await gwFetch('/api/reroll', { method: 'POST', body: '{}' });
-            const d = await res.json().catch(() => ({}));
-            if (!d.success) setStatus(null, d.error || 'Реролл невозможен', true);
-            else setStatus(null, 'Реролл…');
+            setActionBusy('reroll', 'Рероллится');
+            try {
+                const res = await gwFetch('/api/reroll', { method: 'POST', body: '{}' });
+                const d = await res.json().catch(() => ({}));
+                if (!d.success) {
+                    clearActionBusy();
+                    setStatus(null, d.error || 'Реролл невозможен', true);
+                } else {
+                    setStatus(null, 'Реролл…');
+                    dockRollState = 'idle';
+                    dockRollFor = '';
+                }
+            } catch (_) {
+                clearActionBusy();
+                setStatus(null, 'Реролл невозможен', true);
+            }
         });
 
         document.getElementById('btnResetGw').addEventListener('click', async () => {
             if (!confirm('Сбросить розыгрыш полностью?')) return;
+            clearActionBusy();
+            hideDockRoulette();
             await gwFetch('/api/reset', { method: 'POST', body: '{}' });
             document.getElementById('keywordInput').value = '';
             setStatus(null, 'Сброс');
@@ -1003,22 +1272,63 @@
                 lastGwCount = nextCount;
 
                 const live = !!(d.is_active || d.winner);
+                const selecting = (Number(d.countdown) || 0) > 0;
                 const kwEl = document.getElementById('keywordInput');
                 if (document.activeElement !== kwEl) kwEl.value = d.keyword || '';
                 const accEl = document.getElementById('acceptAny');
                 if (document.activeElement !== accEl) accEl.checked = !!d.accept_any_message;
                 // Чекбокс виден до запуска (рядом с Запуск) и во время розыгрыша
                 document.getElementById('acceptAnyWrap').style.display = '';
-                document.getElementById('rowIdle').style.display = live ? 'none' : '';
-                document.getElementById('rowLive').style.display = live ? '' : 'none';
-                document.getElementById('rowLive2').style.display = live ? '' : 'none';
+                document.getElementById('rowIdle').style.display = (live || selecting) ? 'none' : '';
+                document.getElementById('rowLive').style.display = (live || selecting) ? '' : 'none';
+                document.getElementById('rowLive2').style.display = (live || selecting) ? '' : 'none';
 
-                document.getElementById('btnPick').disabled = d.count === 0 || !!d.winner;
-                document.getElementById('btnReroll').disabled = !d.winner || d.count === 0;
+                if (actionBusy === 'start' || actionBusy === 'startTest') {
+                    if (d.is_active || selecting || d.winner) clearActionBusy();
+                }
+                if ((actionBusy === 'pick' || actionBusy === 'reroll') && selecting) {
+                    if (actionBusy === 'reroll') {
+                        setBtnLabel('btnReroll', 'Рероллится');
+                        document.getElementById('btnReroll').classList.add('is-busy');
+                    } else {
+                        setBtnLabel('btnPick', 'Выбор победителя');
+                        document.getElementById('btnPick').classList.add('is-busy');
+                    }
+                    document.getElementById('btnPick').disabled = true;
+                    document.getElementById('btnReroll').disabled = true;
+                } else if ((actionBusy === 'pick' || actionBusy === 'reroll') && d.winner && !selecting) {
+                    clearActionBusy();
+                }
+
+                if (!actionBusy) {
+                    if (selecting) {
+                        setBtnLabel('btnPick', 'Выбор победителя');
+                        document.getElementById('btnPick').classList.add('is-busy');
+                        document.getElementById('btnPick').disabled = true;
+                        document.getElementById('btnReroll').disabled = true;
+                    } else {
+                        restoreBtnLabel('btnPick');
+                        restoreBtnLabel('btnReroll');
+                        document.getElementById('btnPick').disabled = d.count === 0 || !!d.winner;
+                        document.getElementById('btnReroll').disabled = !d.winner || d.count === 0;
+                    }
+                } else if (actionBusy === 'pick' || actionBusy === 'reroll') {
+                    document.getElementById('btnPick').disabled = true;
+                    document.getElementById('btnReroll').disabled = true;
+                }
+
+                syncDockRoulette(d);
+                if (!selecting && d.winner && dockRollState === 'done') {
+                    clearTimeout(window.__dockRouletteHideTimer);
+                    window.__dockRouletteHideTimer = setTimeout(() => {
+                        if (dockRollState === 'done') hideDockRoulette();
+                    }, 3500);
+                }
+
                 const addTestBtn = document.getElementById('btnAddTestParticipant');
-                if (live && d.is_test_mode) {
+                if ((live || selecting) && d.is_test_mode) {
                     addTestBtn.style.display = '';
-                    addTestBtn.disabled = d.countdown > 0;
+                    addTestBtn.disabled = selecting;
                 } else {
                     addTestBtn.style.display = 'none';
                 }
