@@ -601,6 +601,8 @@
         let actionBusy = null; // start | startTest | pick | reroll
         let dockRollState = 'idle'; // idle | rolling | done
         let dockRollFor = '';
+        let dockActiveRollId = '';
+        let dockRollFinishTimer = 0;
         const DOCK_ROLL_H = 32;
 
         function setBtnLabel(id, text) {
@@ -651,11 +653,6 @@
             return was;
         }
 
-        function randomDockName(pool) {
-            if (!pool.length) return 'Участник';
-            return pool[Math.floor(Math.random() * pool.length)];
-        }
-
         function renderDockTrack(names) {
             const track = document.getElementById('dockRouletteTrack');
             if (!track) return;
@@ -680,76 +677,81 @@
             if (box) box.classList.remove('show');
             dockRollState = 'idle';
             dockRollFor = '';
+            dockActiveRollId = '';
+            if (dockRollFinishTimer) {
+                clearTimeout(dockRollFinishTimer);
+                dockRollFinishTimer = 0;
+            }
             const track = document.getElementById('dockRouletteTrack');
             if (track) {
                 track.style.transition = 'none';
+                track.style.transitionDelay = '0ms';
                 track.style.transform = 'translateY(0)';
                 track.innerHTML = '';
             }
         }
 
-        function startDockWinnerRoll(participants, winnerName, hint) {
+        function startDockWinnerRollFromServer(roll, serverNowMs, hint) {
             const track = document.getElementById('dockRouletteTrack');
-            if (!track) return;
-            const finalName = String(winnerName || 'Победитель');
-            if (dockRollState === 'rolling' && dockRollFor === finalName) return;
-            if (dockRollState === 'done' && dockRollFor === finalName) return;
+            if (!track || !roll || !roll.id || !Array.isArray(roll.rows)) return;
+            if (dockActiveRollId === roll.id && dockRollState !== 'idle') return;
 
-            const pool = (Array.isArray(participants) ? participants : [])
-                .map((x) => String(x || '').trim())
-                .filter(Boolean);
-            const names = pool.length ? pool : ['Участник'];
-
+            dockActiveRollId = roll.id;
             dockRollState = 'rolling';
-            dockRollFor = finalName;
+            dockRollFor = String(roll.winner || '');
             showDockRoulette(hint || 'Выбор победителя…');
+            renderDockTrack(roll.rows);
 
-            const base = [];
-            for (let i = 0; i < 10; i += 1) base.push(randomDockName(names));
-            const tail = [];
-            for (let i = 0; i < 28; i += 1) tail.push(randomDockName(names));
-            const hold = [];
-            for (let i = 0; i < 10; i += 1) hold.push(finalName);
-            const rows = base.concat(tail, [finalName], hold);
-            renderDockTrack(rows);
+            const target = Math.max(0, Number(roll.winner_index) || 0) * DOCK_ROLL_H;
+            const duration = Math.max(1000, Number(roll.duration_ms) || 5000);
+            const started = Number(roll.started_at_ms) || Date.now();
+            const serverNow = Number(serverNowMs) || Date.now();
+            const elapsed = Math.max(0, Math.min(duration, serverNow - started));
+            const easing = roll.easing || 'cubic-bezier(0.12, 0.82, 0.18, 1)';
 
-            const winnerIndex = base.length + tail.length;
-            const target = winnerIndex * DOCK_ROLL_H;
-            const duration = 4800;
-
-            track.style.transition = 'none';
-            track.style.transform = 'translateY(0)';
-            void track.offsetWidth;
-            track.style.transition = `transform ${duration}ms cubic-bezier(0.12, 0.82, 0.18, 1)`;
-            track.style.transform = `translateY(-${target}px)`;
-
-            const onDone = () => {
-                track.removeEventListener('transitionend', onDone);
+            const finish = () => {
+                if (dockRollState === 'done' && dockActiveRollId === roll.id) return;
+                track.removeEventListener('transitionend', finish);
+                if (dockRollFinishTimer) {
+                    clearTimeout(dockRollFinishTimer);
+                    dockRollFinishTimer = 0;
+                }
+                track.style.transitionDelay = '0ms';
                 dockRollState = 'done';
+                const finalName = String(roll.winner || 'Победитель');
                 renderDockTrack([finalName, finalName, finalName]);
                 track.style.transition = 'none';
                 track.style.transform = 'translateY(0)';
                 const h = document.getElementById('dockRouletteHint');
                 if (h) h.textContent = 'Победитель: ' + finalName;
             };
-            track.addEventListener('transitionend', onDone, { once: true });
+
+            track.style.transition = 'none';
+            track.style.transitionDelay = '0ms';
+            track.style.transform = 'translateY(0)';
+            void track.offsetWidth;
+
+            if (elapsed >= duration - 20) {
+                track.style.transform = `translateY(-${target}px)`;
+                finish();
+                return;
+            }
+
+            track.style.transition = `transform ${duration}ms ${easing}`;
+            track.style.transitionDelay = `-${elapsed}ms`;
+            track.style.transform = `translateY(-${target}px)`;
+            track.addEventListener('transitionend', finish, { once: true });
+            if (dockRollFinishTimer) clearTimeout(dockRollFinishTimer);
+            dockRollFinishTimer = setTimeout(finish, Math.max(0, duration - elapsed) + 80);
         }
 
         function syncDockRoulette(d) {
             const selecting = (Number(d.countdown) || 0) > 0;
-            const pending = d.pending_winner || '';
+            const roll = d.roll;
             const winner = d.winner || '';
-            if (selecting && pending) {
+            if (roll && roll.id && (selecting || winner)) {
                 const hint = actionBusy === 'reroll' ? 'Реролл…' : 'Выбор победителя…';
-                startDockWinnerRoll(d.participants || [], pending, hint);
-                return;
-            }
-            if (!selecting && winner && dockRollState === 'rolling') {
-                // дождаться transitionend — или форсировать done
-                return;
-            }
-            if (!selecting && winner && dockRollState === 'done') {
-                // коротко держим барабан, потом можно спрятать через пару секунд
+                startDockWinnerRollFromServer(roll, d.server_now_ms, hint);
                 return;
             }
             if (!selecting && !winner && dockRollState !== 'idle') {
@@ -1077,6 +1079,7 @@
                     setStatus(null, 'Реролл…');
                     dockRollState = 'idle';
                     dockRollFor = '';
+                    dockActiveRollId = '';
                 }
             } catch (_) {
                 clearActionBusy();

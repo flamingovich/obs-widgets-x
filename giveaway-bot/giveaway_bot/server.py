@@ -1169,6 +1169,38 @@ def serve_sound(filename):
 
 # === API РОЗЫГРЫША ===
 
+# Общий план барабана для виджета и дока (синхрон через started_at + negative delay).
+ROLL_DURATION_MS = 5000
+ROLL_BASE_LEN = 24
+ROLL_TAIL_LEN = 44
+ROLL_HOLD_LEN = 18
+
+
+def build_roll_plan(participants, winner: str) -> dict:
+    pool = [str(p).strip() for p in (participants or []) if str(p or "").strip()]
+    if not pool:
+        pool = ["Участник"]
+    final = str(winner or pool[0]).strip() or "Победитель"
+    seed = random.randint(1, 2_147_483_647)
+    rng = random.Random(seed)
+    base = [rng.choice(pool) for _ in range(ROLL_BASE_LEN)]
+    tail = [rng.choice(pool) for _ in range(ROLL_TAIL_LEN)]
+    hold = [final] * ROLL_HOLD_LEN
+    rows = base + tail + [final] + hold
+    winner_index = len(base) + len(tail)
+    started = int(time.time() * 1000)
+    return {
+        "id": f"{started}-{seed}",
+        "seed": seed,
+        "started_at_ms": started,
+        "duration_ms": ROLL_DURATION_MS,
+        "winner": final,
+        "rows": rows,
+        "winner_index": winner_index,
+        "easing": "cubic-bezier(0.12, 0.82, 0.18, 1)",
+    }
+
+
 @app.route('/api/status')
 def status():
     timer_seconds = None
@@ -1206,7 +1238,9 @@ def status():
         "countdown": giveaway["countdown"],
         "is_test_mode": giveaway.get("is_test_mode", False),
         "timer_seconds": timer_seconds,
-        "timer_stopped": timer_stopped
+        "timer_stopped": timer_stopped,
+        "roll": giveaway.get("roll"),
+        "server_now_ms": int(time.time() * 1000),
     })
 
 
@@ -1245,6 +1279,7 @@ def start():
     giveaway["is_test_mode"] = False
     giveaway["test_participant_seq"] = 0
     giveaway["countdown"] = 0
+    giveaway["roll"] = None
     giveaway["is_connected"] = False
     giveaway["chat_reconnecting"] = False
     giveaway["chat_last_ok_at"] = None
@@ -1279,6 +1314,7 @@ def start_test():
     giveaway["is_connected"] = True
     giveaway["chat_reconnecting"] = False
     giveaway["countdown"] = 0
+    giveaway["roll"] = None
     giveaway["is_test_mode"] = True
     giveaway["test_participant_seq"] = 0
 
@@ -1327,6 +1363,7 @@ def stop():
         # Сбор стоп, чат оставляем — ждём ответ победителя (авто-reconnect тоже работает)
         print("⏹️ Сбор остановлен, чат ждёт сообщение победителя")
     else:
+        giveaway["roll"] = None
         _stop_chat_watcher(uid)
         print("⏹️ Розыгрыш остановлен")
     return jsonify({"success": True})
@@ -1340,15 +1377,18 @@ def pick():
     if int(gw.get("countdown") or 0) > 0:
         return jsonify({"success": False, "error": "Выбор уже идет"})
     planned_winner = random.choice(gw["participants"])
+    roll = build_roll_plan(gw["participants"], planned_winner)
     gw["pending_winner"] = planned_winner
-    gw["countdown"] = 5
+    gw["roll"] = roll
+    gw["countdown"] = max(1, int(round(ROLL_DURATION_MS / 1000.0)))
     # Важно: в фоне нет Flask request context → нельзя писать через proxy giveaway
     # (он уйдёт в user_id=0). Держим прямой dict текущего пользователя.
     uid = get_user_id()
 
-    def countdown_and_pick(user_id: int, planned: str):
+    def countdown_and_pick(user_id: int, planned: str, duration_ms: int):
         state = get_giveaway_for_user(user_id)
-        for i in [5, 4, 3, 2, 1]:
+        steps = max(1, int(round(duration_ms / 1000.0)))
+        for i in range(steps, 0, -1):
             state["countdown"] = i
             time.sleep(1)
 
@@ -1364,11 +1404,11 @@ def pick():
         print(f"🎉 Победитель: {state['winner']} (user {user_id})")
 
     thread = threading.Thread(
-        target=countdown_and_pick, args=(uid, planned_winner), daemon=True
+        target=countdown_and_pick, args=(uid, planned_winner, ROLL_DURATION_MS), daemon=True
     )
     thread.start()
 
-    return jsonify({"success": True, "pending_winner": planned_winner})
+    return jsonify({"success": True, "pending_winner": planned_winner, "roll": roll})
 
 
 @app.route('/api/reroll', methods=['POST'])
@@ -1388,13 +1428,16 @@ def reroll():
     if not gw["participants"]:
         return jsonify({"success": False, "error": "Больше нет участников"})
     planned_winner = random.choice(gw["participants"])
+    roll = build_roll_plan(gw["participants"], planned_winner)
     gw["pending_winner"] = planned_winner
-    gw["countdown"] = 5
+    gw["roll"] = roll
+    gw["countdown"] = max(1, int(round(ROLL_DURATION_MS / 1000.0)))
     uid = get_user_id()
 
-    def countdown_and_reroll(user_id: int, planned: str):
+    def countdown_and_reroll(user_id: int, planned: str, duration_ms: int):
         state = get_giveaway_for_user(user_id)
-        for i in [5, 4, 3, 2, 1]:
+        steps = max(1, int(round(duration_ms / 1000.0)))
+        for i in range(steps, 0, -1):
             state["countdown"] = i
             time.sleep(1)
 
@@ -1409,11 +1452,16 @@ def reroll():
         print(f"🔄 Реролл! Новый победитель: {state['winner']} (user {user_id})")
 
     thread = threading.Thread(
-        target=countdown_and_reroll, args=(uid, planned_winner), daemon=True
+        target=countdown_and_reroll, args=(uid, planned_winner, ROLL_DURATION_MS), daemon=True
     )
     thread.start()
 
-    return jsonify({"success": True, "old_winner": old_winner, "pending_winner": planned_winner})
+    return jsonify({
+        "success": True,
+        "old_winner": old_winner,
+        "pending_winner": planned_winner,
+        "roll": roll,
+    })
 
 
 @app.route('/api/giveaway-update', methods=['POST'])
@@ -1474,6 +1522,7 @@ def reset():
     giveaway["is_connected"] = False
     giveaway["chat_reconnecting"] = False
     giveaway["countdown"] = 0
+    giveaway["roll"] = None
     giveaway["is_test_mode"] = False
     giveaway["test_participant_seq"] = 0
     print("🔄 Сброс")

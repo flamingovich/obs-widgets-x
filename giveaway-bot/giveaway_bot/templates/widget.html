@@ -346,6 +346,8 @@
         let winnerHoldUntil = 0;
         let winnerFadeStarted = false;
         let countdownPreviewSig = '';
+        let activeRollId = '';
+        let rollFinishTimer = 0;
         const ROULETTE_ITEM_HEIGHT = 36;
         let joinFxQueue = [];
         let joinFxActive = 0;
@@ -684,6 +686,7 @@
         }
 
         function startWinnerRollAnimation(participants, winnerName) {
+            // fallback если сервер ещё не отдал roll-план
             const track = document.getElementById('countdownTrack');
             if (!track) return;
             if (winnerRollState === 'rolling' || winnerRollState === 'done') return;
@@ -727,6 +730,7 @@
             rouletteSpeed = 0;
 
             track.style.transition = 'none';
+            track.style.transitionDelay = '0ms';
             track.style.transform = `translateY(-${startOffset.toFixed(2)}px)`;
             void track.offsetWidth;
 
@@ -744,13 +748,76 @@
             track.addEventListener('transitionend', onDone, { once: true });
         }
 
+        function applyServerRoll(roll, serverNowMs) {
+            const track = document.getElementById('countdownTrack');
+            if (!track || !roll || !roll.id || !Array.isArray(roll.rows)) return false;
+            if (activeRollId === roll.id && winnerRollState !== 'idle') return true;
+
+            activeRollId = roll.id;
+            winnerRollState = 'rolling';
+            winnerRollName = String(roll.winner || 'Победитель');
+            renderRouletteTrackRows(roll.rows);
+
+            const itemH = ROULETTE_ITEM_HEIGHT;
+            const target = Math.max(0, Number(roll.winner_index) || 0) * itemH;
+            const duration = Math.max(1000, Number(roll.duration_ms) || 5000);
+            const started = Number(roll.started_at_ms) || Date.now();
+            const serverNow = Number(serverNowMs) || Date.now();
+            const elapsed = Math.max(0, Math.min(duration, serverNow - started));
+            const easing = roll.easing || 'cubic-bezier(0.12, 0.82, 0.18, 1)';
+
+            if (rouletteRafId) {
+                window.cancelAnimationFrame(rouletteRafId);
+                rouletteRafId = 0;
+            }
+            stopWinnerRollTicks();
+
+            const finish = () => {
+                if (winnerRollState === 'done' && activeRollId === roll.id) return;
+                track.removeEventListener('transitionend', finish);
+                if (rollFinishTimer) {
+                    clearTimeout(rollFinishTimer);
+                    rollFinishTimer = 0;
+                }
+                track.style.transitionDelay = '0ms';
+                setRouletteWinnerHoldName(winnerRollName);
+                winnerRollState = 'done';
+                winnerHoldUntil = Date.now() + 260;
+            };
+
+            track.style.transition = 'none';
+            track.style.transitionDelay = '0ms';
+            track.style.transform = 'translateY(0px)';
+            void track.offsetWidth;
+
+            if (elapsed >= duration - 20) {
+                track.style.transform = `translateY(-${target}px)`;
+                finish();
+                return true;
+            }
+
+            track.style.transition = `transform ${duration}ms ${easing}`;
+            track.style.transitionDelay = `-${elapsed}ms`;
+            track.style.transform = `translateY(-${target}px)`;
+            startWinnerRollTicks(0);
+            track.addEventListener('transitionend', finish, { once: true });
+            if (rollFinishTimer) clearTimeout(rollFinishTimer);
+            rollFinishTimer = setTimeout(finish, Math.max(0, duration - elapsed) + 80);
+            return true;
+        }
+
         function resetWinnerRollState() {
             stopWinnerRollTicks();
+            if (rollFinishTimer) {
+                clearTimeout(rollFinishTimer);
+                rollFinishTimer = 0;
+            }
             winnerRollState = 'idle';
             winnerRollName = '';
             winnerHoldUntil = 0;
             winnerFadeStarted = false;
             winnerSoundPlayedFor = '';
+            activeRollId = '';
         }
 
         function holdWinnerIfNeeded() {
@@ -1135,9 +1202,10 @@
                     activeState.style.display = 'none';
                     winnerState.style.display = 'none';
                     countdownState.style.display = 'flex';
-                    // Если победитель уже предвыбран — запускаем сразу финальную плавную прокрутку.
-                    // Иначе показываем статичную витрину имён до момента предвыбора.
-                    if (data.pending_winner) {
+                    // Если есть общий roll-план с сервера — крутим синхронно с доком.
+                    if (data.roll && data.roll.id) {
+                        applyServerRoll(data.roll, data.server_now_ms);
+                    } else if (data.pending_winner) {
                         startWinnerRollAnimation(data.participants || [], data.pending_winner);
                     } else {
                         ensureCountdownPreview(data.participants || []);
@@ -1149,7 +1217,9 @@
                 // Winner
                 } else if (newState === 'winner') {
                     const finalWinnerName = data.pending_winner || data.winner || 'Победитель';
-                    if (winnerRollState === 'idle') {
+                    if (data.roll && data.roll.id) {
+                        applyServerRoll(data.roll, data.server_now_ms);
+                    } else if (winnerRollState === 'idle') {
                         startWinnerRollAnimation(data.participants || [], finalWinnerName);
                     }
                     if (winnerRollState !== 'done' || holdWinnerIfNeeded()) {

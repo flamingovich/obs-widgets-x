@@ -31,6 +31,7 @@ GIVEAWAY_TEMPLATE = {
     "countdown": 0,
     "is_test_mode": False,
     "test_participant_seq": 0,
+    "roll": None,
 }
 
 _giveaways: dict[int, dict] = {}
