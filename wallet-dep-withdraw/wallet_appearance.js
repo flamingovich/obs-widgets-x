@@ -111,7 +111,14 @@
     var likes = root.querySelector(".likes-card");
     if (dep) dep.style.display = s.show_dep === false ? "none" : "";
     if (out) out.style.display = s.show_out === false ? "none" : "";
-    if (likes) likes.style.display = s.show_likes === false ? "none" : "";
+    if (likes) {
+      // runtime hide из дока важнее конструкторного show_likes
+      if (likes.classList.contains("likes-visually-hidden")) {
+        likes.style.display = "none";
+      } else {
+        likes.style.display = s.show_likes === false ? "none" : "";
+      }
+    }
 
     var depLbl = root.querySelector(".card.dep .card-lbl");
     var outLbl = root.querySelector(".card.out .card-lbl");

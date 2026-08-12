@@ -544,11 +544,15 @@
       text-align: center;
     }
 
-    /* Скрытие лайков: место в вёрстке сохраняем (оверлей не «прыгает»). */
+    /* Скрытие лайков: полностью убираем блок (без «тёмного пятна»). */
     .likes-card.likes-visually-hidden {
+      display: none !important;
       visibility: hidden !important;
       opacity: 0 !important;
       pointer-events: none !important;
+      margin: 0 !important;
+      height: 0 !important;
+      overflow: hidden !important;
     }
 
     /* ——— док (стиль как у розыгрыша YouTube) ——— */
@@ -1699,6 +1703,9 @@
       const hidden = likesGoalHidden();
       el.classList.toggle("likes-visually-hidden", hidden);
       el.setAttribute("aria-hidden", hidden ? "true" : "false");
+      // appearance.js может выставить display=""; !important-класс перекрывает
+      if (hidden) el.style.display = "none";
+      else if (el.style.display === "none") el.style.display = "";
     }
 
     function syncHideLikesBtnLabel() {
