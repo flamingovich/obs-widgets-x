@@ -588,6 +588,12 @@
             return was;
         }
 
+        function selectingBtnLabel(kind, countdown) {
+            const n = Math.max(0, Number(countdown) || 0);
+            const base = kind === 'reroll' ? 'Рероллится' : 'Выбор победителя';
+            return n > 0 ? `${base} (${n})` : base;
+        }
+
         function wheelBase() {
             return window.location.origin;
         }
@@ -1113,10 +1119,10 @@
                 }
                 if ((actionBusy === 'pick' || actionBusy === 'reroll') && selecting) {
                     if (actionBusy === 'reroll') {
-                        setBtnLabel('btnReroll', 'Рероллится');
+                        setBtnLabel('btnReroll', selectingBtnLabel('reroll', d.countdown));
                         document.getElementById('btnReroll').classList.add('is-busy');
                     } else {
-                        setBtnLabel('btnPick', 'Выбор победителя');
+                        setBtnLabel('btnPick', selectingBtnLabel('pick', d.countdown));
                         document.getElementById('btnPick').classList.add('is-busy');
                     }
                     document.getElementById('btnPick').disabled = true;
@@ -1127,7 +1133,7 @@
 
                 if (!actionBusy) {
                     if (selecting) {
-                        setBtnLabel('btnPick', 'Выбор победителя');
+                        setBtnLabel('btnPick', selectingBtnLabel('pick', d.countdown));
                         document.getElementById('btnPick').classList.add('is-busy');
                         document.getElementById('btnPick').disabled = true;
                         document.getElementById('btnReroll').disabled = true;
