@@ -140,9 +140,7 @@ widget_settings = default_widget_settings.copy()
 _settings_lock = threading.RLock()
 _settings_cache: dict[int, dict] = {}
 
-saved_channel = {
-    "channel_id": ""
-}
+_channel_lock = threading.RLock()
 _channel_cache: dict[int, dict] = {}
 
 
@@ -151,6 +149,54 @@ def _settings_user_id() -> int:
         return 0
     resolve_user()
     return get_user_id()
+
+
+def _empty_channel() -> dict:
+    return {"channel_id": "", "title": "", "avatar": "", "handle": ""}
+
+
+def _load_channel_for_user(user_id: int) -> dict:
+    if platform_db and user_id:
+        stored = platform_db.get_user_setting(user_id, "giveaway_channel")
+        if isinstance(stored, dict):
+            out = _empty_channel()
+            out.update(stored)
+            return out
+    if user_id == 0 and os.path.exists(CHANNEL_PATH):
+        try:
+            with open(CHANNEL_PATH, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+            if isinstance(loaded, dict):
+                out = _empty_channel()
+                out.update(loaded)
+                return out
+        except (OSError, json.JSONDecodeError, ValueError, TypeError):
+            pass
+    return _empty_channel()
+
+
+def get_saved_channel(user_id: int | None = None) -> dict:
+    """Per-user channel snapshot (copy). Never share one global across requests."""
+    uid = _settings_user_id() if user_id is None else int(user_id or 0)
+    with _channel_lock:
+        if uid not in _channel_cache:
+            _channel_cache[uid] = _load_channel_for_user(uid)
+        return dict(_channel_cache[uid])
+
+
+def set_saved_channel(data: dict, user_id: int | None = None) -> dict:
+    uid = _settings_user_id() if user_id is None else int(user_id or 0)
+    payload = _empty_channel()
+    if isinstance(data, dict):
+        payload.update(data)
+    with _channel_lock:
+        _channel_cache[uid] = dict(payload)
+    if platform_db and uid:
+        platform_db.save_user_setting(uid, "giveaway_channel", payload)
+    elif uid == 0:
+        with open(CHANNEL_PATH, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False)
+    return dict(payload)
 
 
 def _get_widget_settings_mutable() -> dict:
@@ -344,30 +390,16 @@ def save_settings():
 
 
 def load_channel():
-    global saved_channel
-    uid = _settings_user_id()
-    if platform_db and uid:
-        stored = platform_db.get_user_setting(uid, "giveaway_channel")
-        if isinstance(stored, dict):
-            saved_channel = stored
-            _channel_cache[uid] = stored
-            return
-    if os.path.exists(CHANNEL_PATH):
-        try:
-            with open(CHANNEL_PATH, "r", encoding="utf-8") as f:
-                saved_channel = json.load(f)
-        except OSError:
-            pass
+    """Ensure current user's channel is cached; return a copy."""
+    return get_saved_channel()
 
 
 def save_channel():
-    global saved_channel
+    """Persist current user's cached channel (compat)."""
     uid = _settings_user_id()
-    if platform_db and uid:
-        platform_db.save_user_setting(uid, "giveaway_channel", saved_channel)
-        return
-    with open(CHANNEL_PATH, "w", encoding="utf-8") as f:
-        json.dump(saved_channel, f, ensure_ascii=False)
+    with _channel_lock:
+        payload = dict(_channel_cache.get(uid) or _empty_channel())
+    set_saved_channel(payload, user_id=uid)
 
 
 def get_live_video_id(channel_input):
@@ -1005,7 +1037,7 @@ def _chat_watchdog_loop():
                     continue
                 channel = (gw.get("bound_channel") or "").strip()
                 if not channel:
-                    stored = _channel_cache.get(uid) or {}
+                    stored = get_saved_channel(uid)
                     channel = (stored.get("channel_id") or "").strip()
 
                 thread = get_chat_thread_for_user(uid)
@@ -1214,7 +1246,7 @@ def status():
             timer_seconds = time.time() - giveaway["winner_picked_at"]
             timer_stopped = False
 
-    load_channel()
+    ch = load_channel()
 
     return jsonify({
         "video_id": giveaway["video_id"],
@@ -1231,10 +1263,10 @@ def status():
         "is_connected": giveaway["is_connected"],
         "chat_reconnecting": bool(giveaway.get("chat_reconnecting")),
         "chat_last_error": giveaway.get("chat_last_error") or "",
-        "channel_id": (saved_channel.get("channel_id") or ""),
-        "channel_title": (saved_channel.get("title") or ""),
-        "channel_avatar": (saved_channel.get("avatar") or ""),
-        "channel_handle": (saved_channel.get("handle") or ""),
+        "channel_id": (ch.get("channel_id") or ""),
+        "channel_title": (ch.get("title") or ""),
+        "channel_avatar": (ch.get("avatar") or ""),
+        "channel_handle": (ch.get("handle") or ""),
         "countdown": giveaway["countdown"],
         "is_test_mode": giveaway.get("is_test_mode", False),
         "timer_seconds": timer_seconds,
@@ -1255,12 +1287,8 @@ def start():
         return jsonify({"success": False, "error": "Не удалось найти активный стрим на этом канале"})
     
     uid = get_user_id()
-    # Запомнить канал при запуске
-    saved_channel.clear()
-    saved_channel.update(enrich_saved_channel(channel_input.strip()))
-    if uid:
-        _channel_cache[uid] = dict(saved_channel)
-    save_channel()
+    # Запомнить канал при запуске (строго для текущего пользователя)
+    ch = set_saved_channel(enrich_saved_channel(channel_input.strip()), user_id=uid)
     giveaway["bound_channel"] = channel_input.strip()
 
     # Сброс состояния розыгрыша — чат перезапускаем отдельно, без гонки stop/clear
@@ -1478,29 +1506,26 @@ def giveaway_update():
 @app.route('/api/reconnect-chat', methods=['POST'])
 def reconnect_chat():
     """Сохранить канал и переподключить pytchat, не сбрасывая участников/победителя."""
-    global saved_channel
     data = request.get_json(silent=True) or {}
-    channel_input = (data.get("channel") or saved_channel.get("channel_id") or "").strip()
+    ch = get_saved_channel()
+    channel_input = (data.get("channel") or ch.get("channel_id") or "").strip()
     if not channel_input:
         return jsonify({"success": False, "error": "Укажите канал или сохраните ссылку"})
     video_id = get_live_video_id(channel_input)
     if not video_id:
         return jsonify({"success": False, "error": "Не удалось найти активный стрим"})
 
-    saved_channel = enrich_saved_channel(channel_input)
     uid = get_user_id()
-    if uid:
-        _channel_cache[uid] = dict(saved_channel)
-    save_channel()
+    ch = set_saved_channel(enrich_saved_channel(channel_input), user_id=uid)
     giveaway["bound_channel"] = channel_input
 
     giveaway["video_id"] = video_id
     should_run = bool(giveaway.get("is_active") or giveaway.get("winner"))
     if not should_run or giveaway.get("is_test_mode"):
-        return jsonify({"success": True, "video_id": video_id, "saved_only": True, **saved_channel})
+        return jsonify({"success": True, "video_id": video_id, "saved_only": True, **ch})
 
     _start_chat_watcher(uid)
-    return jsonify({"success": True, "video_id": video_id, **saved_channel})
+    return jsonify({"success": True, "video_id": video_id, **ch})
 
 
 @app.route('/api/reset', methods=['POST'])
@@ -1533,31 +1558,24 @@ def reset():
 
 @app.route('/api/channel')
 def get_channel():
-    load_channel()
-    return jsonify(saved_channel)
+    return jsonify(get_saved_channel())
 
 
 @app.route('/api/channel', methods=['POST'])
 def update_channel():
-    global saved_channel
     data = request.get_json(silent=True) or {}
     channel_id = str(data.get("channel_id") or data.get("channel") or "").strip()
     if not channel_id:
         return jsonify({"success": False, "error": "Пустой канал"}), 400
-    saved_channel = enrich_saved_channel(channel_id)
-    uid = _settings_user_id()
-    if uid:
-        _channel_cache[uid] = dict(saved_channel)
-    save_channel()
-    return jsonify({"success": True, **saved_channel})
+    ch = set_saved_channel(enrich_saved_channel(channel_id))
+    return jsonify({"success": True, **ch})
 
 
 @app.route('/api/channel-meta')
 def channel_meta_api():
-    channel = (request.args.get("channel") or saved_channel.get("channel_id") or "").strip()
+    channel = (request.args.get("channel") or "").strip()
     if not channel:
-        load_channel()
-        channel = (saved_channel.get("channel_id") or "").strip()
+        channel = (get_saved_channel().get("channel_id") or "").strip()
     if not channel:
         return jsonify({"ok": False, "error": "no_channel"})
     return jsonify(fetch_channel_profile(channel))
